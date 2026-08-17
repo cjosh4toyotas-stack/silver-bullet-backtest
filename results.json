@@ -1,0 +1,147 @@
+{
+ "generated_utc": "2026-08-17 12:57",
+ "rules_version": "1.0 (2026-08-17)",
+ "coverage": [
+  {
+   "contract": "NQ202609",
+   "bars": 3499,
+   "first_ny": "2026-07-29 07:10",
+   "last_ny": "2026-08-16 23:40"
+  }
+ ],
+ "overall": {
+  "label": "ALL",
+  "n": 5,
+  "wins": 3,
+  "win_rate": 60.0,
+  "total_pts": 114.75,
+  "total_dollars": 2245.0,
+  "avg_dollars": 449.0,
+  "profit_factor": 3.21,
+  "max_drawdown_dollars": 855.0,
+  "stops": 2,
+  "targets": 2,
+  "time_exits": 1
+ },
+ "by_window": [
+  {
+   "label": "London 3-4am",
+   "n": 4,
+   "wins": 2,
+   "win_rate": 50.0,
+   "total_pts": 86.25,
+   "total_dollars": 1685.0,
+   "avg_dollars": 421.25,
+   "profit_factor": 2.66,
+   "max_drawdown_dollars": 1015.0,
+   "stops": 2,
+   "targets": 2,
+   "time_exits": 0
+  },
+  {
+   "label": "AM 10-11am",
+   "n": 0
+  },
+  {
+   "label": "PM 2-3pm",
+   "n": 1,
+   "wins": 1,
+   "win_rate": 100.0,
+   "total_pts": 28.5,
+   "total_dollars": 560.0,
+   "avg_dollars": 560.0,
+   "profit_factor": null,
+   "max_drawdown_dollars": 0.0,
+   "stops": 0,
+   "targets": 0,
+   "time_exits": 1
+  }
+ ],
+ "trades": [
+  {
+   "contract": "NQ202609",
+   "day": "2026-07-31",
+   "window": "London 3-4am",
+   "bias": "bull",
+   "sweep_time": "2026-07-31 02:45",
+   "entry_time": "2026-07-31 03:15",
+   "exit_time": "2026-07-31 05:10",
+   "entry": 28509.75,
+   "stop": 28449.75,
+   "target": 28629.75,
+   "risk_pts": 60.0,
+   "outcome": "target",
+   "exit": 28629.75,
+   "pts": 120.0,
+   "dollars": 2390.0
+  },
+  {
+   "contract": "NQ202609",
+   "day": "2026-08-04",
+   "window": "London 3-4am",
+   "bias": "bear",
+   "sweep_time": "2026-08-04 03:00",
+   "entry_time": "2026-08-04 03:45",
+   "exit_time": "2026-08-04 03:45",
+   "entry": 29093.0,
+   "stop": 29100.5,
+   "target": 29078.0,
+   "risk_pts": 7.5,
+   "outcome": "stop",
+   "exit": 29100.5,
+   "pts": -7.5,
+   "dollars": -160.0
+  },
+  {
+   "contract": "NQ202609",
+   "day": "2026-08-06",
+   "window": "PM 2-3pm",
+   "bias": "bear",
+   "sweep_time": "2026-08-06 14:20",
+   "entry_time": "2026-08-06 14:45",
+   "exit_time": "2026-08-06 16:45",
+   "entry": 29524.5,
+   "stop": 29575.75,
+   "target": 29422.0,
+   "risk_pts": 51.25,
+   "outcome": "time",
+   "exit": 29496.0,
+   "pts": 28.5,
+   "dollars": 560.0
+  },
+  {
+   "contract": "NQ202609",
+   "day": "2026-08-11",
+   "window": "London 3-4am",
+   "bias": "bull",
+   "sweep_time": "2026-08-11 03:20",
+   "entry_time": "2026-08-11 03:40",
+   "exit_time": "2026-08-11 04:15",
+   "entry": 29770.0,
+   "stop": 29727.75,
+   "target": 29854.5,
+   "risk_pts": 42.25,
+   "outcome": "stop",
+   "exit": 29727.75,
+   "pts": -42.25,
+   "dollars": -855.0
+  },
+  {
+   "contract": "NQ202609",
+   "day": "2026-08-13",
+   "window": "London 3-4am",
+   "bias": "bull",
+   "sweep_time": "2026-08-13 02:45",
+   "entry_time": "2026-08-13 03:30",
+   "exit_time": "2026-08-13 03:40",
+   "entry": 29866.0,
+   "stop": 29858.0,
+   "target": 29882.0,
+   "risk_pts": 8.0,
+   "outcome": "target",
+   "exit": 29882.0,
+   "pts": 16.0,
+   "dollars": 310.0
+  }
+ ]
+}

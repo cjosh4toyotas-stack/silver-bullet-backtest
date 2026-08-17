@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silver Bullet Backtest — NQ</title>
+<style>
+.viz-root{color-scheme:light;--surface-1:#fcfcfb;--page:#f9f9f7;--ink-1:#0b0b0b;
+--ink-2:#52514e;--ink-muted:#898781;--grid:#e1e0d9;--baseline:#c3c2b7;
+--border:rgba(11,11,11,.10);--pos:#2a78d6;--neg:#e34948}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme=light])) .viz-root{
+color-scheme:dark;--surface-1:#1a1a19;--page:#0d0d0d;--ink-1:#fff;--ink-2:#c3c2b7;
+--grid:#2c2c2a;--baseline:#383835;--border:rgba(255,255,255,.10);--pos:#3987e5;--neg:#e66767}}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.viz-root{background:var(--page);color:var(--ink-1);min-height:100vh;padding:32px 16px}
+.wrap{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:20px 24px}
+h1{font-size:22px;font-weight:650}h2{font-size:15px;font-weight:650;margin-bottom:12px}
+.sub{color:var(--ink-2);font-size:13px;margin-top:6px;line-height:1.5}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.tile .k{font-size:12px;color:var(--ink-muted);margin-bottom:6px}
+.tile .v{font-size:26px;font-weight:650}.tile .d{font-size:12px;color:var(--ink-2);margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--ink-muted);font-weight:550;padding:6px 8px;border-bottom:1px solid var(--baseline)}
+td{padding:7px 8px;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:none}.r{text-align:right}th.r{text-align:right}
+footer{font-size:12px;color:var(--ink-muted);line-height:1.6}
+svg text{font-family:system-ui,sans-serif}
+</style></head><body class="viz-root"><div class="wrap">
+<div><h1>Silver Bullet — accumulating mechanical backtest on NQ</h1>
+<div class="sub" id="meta"></div></div>
+<div class="tiles" id="tiles"></div>
+<div class="card"><h2>Cumulative P&amp;L</h2><svg id="eq" viewBox="0 0 800 260" width="100%"></svg></div>
+<div class="card"><h2>By window</h2><table id="wtable"></table></div>
+<div class="card"><h2>Trade log</h2><table id="ttable"></table></div>
+<footer>Mechanical rules v1.0 (2026-08-17). IBKR 10-min-delayed data, 5-min bars, $20/pt,
+$10 round-trip costs, 1 contract. Small samples are not evidence of an edge.
+Educational only — not financial advice.</footer>
+</div>
+<script>
+const R = {"generated_utc": "2026-08-17 12:57", "rules_version": "1.0 (2026-08-17)", "coverage": [{"contract": "NQ202609", "bars": 3499, "first_ny": "2026-07-29 07:10", "last_ny": "2026-08-16 23:40"}], "overall": {"label": "ALL", "n": 5, "wins": 3, "win_rate": 60.0, "total_pts": 114.75, "total_dollars": 2245.0, "avg_dollars": 449.0, "profit_factor": 3.21, "max_drawdown_dollars": 855.0, "stops": 2, "targets": 2, "time_exits": 1}, "by_window": [{"label": "London 3-4am", "n": 4, "wins": 2, "win_rate": 50.0, "total_pts": 86.25, "total_dollars": 1685.0, "avg_dollars": 421.25, "profit_factor": 2.66, "max_drawdown_dollars": 1015.0, "stops": 2, "targets": 2, "time_exits": 0}, {"label": "AM 10-11am", "n": 0}, {"label": "PM 2-3pm", "n": 1, "wins": 1, "win_rate": 100.0, "total_pts": 28.5, "total_dollars": 560.0, "avg_dollars": 560.0, "profit_factor": null, "max_drawdown_dollars": 0.0, "stops": 0, "targets": 0, "time_exits": 1}], "trades": [{"contract": "NQ202609", "day": "2026-07-31", "window": "London 3-4am", "bias": "bull", "sweep_time": "2026-07-31 02:45", "entry_time": "2026-07-31 03:15", "exit_time": "2026-07-31 05:10", "entry": 28509.75, "stop": 28449.75, "target": 28629.75, "risk_pts": 60.0, "outcome": "target", "exit": 28629.75, "pts": 120.0, "dollars": 2390.0}, {"contract": "NQ202609", "day": "2026-08-04", "window": "London 3-4am", "bias": "bear", "sweep_time": "2026-08-04 03:00", "entry_time": "2026-08-04 03:45", "exit_time": "2026-08-04 03:45", "entry": 29093.0, "stop": 29100.5, "target": 29078.0, "risk_pts": 7.5, "outcome": "stop", "exit": 29100.5, "pts": -7.5, "dollars": -160.0}, {"contract": "NQ202609", "day": "2026-08-06", "window": "PM 2-3pm", "bias": "bear", "sweep_time": "2026-08-06 14:20", "entry_time": "2026-08-06 14:45", "exit_time": "2026-08-06 16:45", "entry": 29524.5, "stop": 29575.75, "target": 29422.0, "risk_pts": 51.25, "outcome": "time", "exit": 29496.0, "pts": 28.5, "dollars": 560.0}, {"contract": "NQ202609", "day": "2026-08-11", "window": "London 3-4am", "bias": "bull", "sweep_time": "2026-08-11 03:20", "entry_time": "2026-08-11 03:40", "exit_time": "2026-08-11 04:15", "entry": 29770.0, "stop": 29727.75, "target": 29854.5, "risk_pts": 42.25, "outcome": "stop", "exit": 29727.75, "pts": -42.25, "dollars": -855.0}, {"contract": "NQ202609", "day": "2026-08-13", "window": "London 3-4am", "bias": "bull", "sweep_time": "2026-08-13 02:45", "entry_time": "2026-08-13 03:30", "exit_time": "2026-08-13 03:40", "entry": 29866.0, "stop": 29858.0, "target": 29882.0, "risk_pts": 8.0, "outcome": "target", "exit": 29882.0, "pts": 16.0, "dollars": 310.0}]};
+const fm = d => (d>=0?"+$":"−$")+Math.abs(Math.round(d)).toLocaleString();
+const o = R.overall;
+document.getElementById("meta").textContent =
+  `Updated ${R.generated_utc} UTC · ${R.coverage.map(c=>`${c.contract}: ${c.first_ny.slice(0,10)} → ${c.last_ny.slice(0,10)}`).join(" · ")}`;
+const tiles=[["Net P&L",fm(o.total_dollars||0),`${o.total_pts||0} pts after costs`],
+["Trades",o.n||0,`${o.wins||0} wins`],["Win rate",(o.win_rate||0)+"%",`${o.targets||0} tgt · ${o.stops||0} stop · ${o.time_exits||0} time`],
+["Profit factor",o.profit_factor==null?"∞":o.profit_factor,`max DD $${(o.max_drawdown_dollars||0).toLocaleString()}`]];
+document.getElementById("tiles").innerHTML=tiles.map(t=>`<div class="tile"><div class="k">${t[0]}</div><div class="v">${t[1]}</div><div class="d">${t[2]}</div></div>`).join("");
+document.getElementById("wtable").innerHTML=`<thead><tr><th>Window (NY)</th><th class="r">Trades</th><th class="r">Win rate</th><th class="r">Net $</th><th class="r">PF</th></tr></thead><tbody>`+
+R.by_window.map(w=>w.n?`<tr><td>${w.label}</td><td class="r">${w.n}</td><td class="r">${w.win_rate}%</td><td class="r">${fm(w.total_dollars)}</td><td class="r">${w.profit_factor==null?"∞":w.profit_factor}</td></tr>`:`<tr><td>${w.label}</td><td class="r">0</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>`).join("")+"</tbody>";
+document.getElementById("ttable").innerHTML=`<thead><tr><th>Date</th><th>Window</th><th>Dir</th><th class="r">Entry</th><th class="r">Risk</th><th>Exit</th><th class="r">P&L</th></tr></thead><tbody>`+
+R.trades.slice().reverse().map(t=>`<tr><td>${t.day}</td><td>${t.window}</td><td>${t.bias}</td><td class="r">${t.entry.toLocaleString()}</td><td class="r">${t.risk_pts}</td><td>${t.outcome}</td><td class="r">${fm(t.dollars)}</td></tr>`).join("")+"</tbody>";
+(function(){
+const css=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
+function draw(){
+const svg=document.getElementById("eq");svg.innerHTML="";
+const W=800,H=260,m={t:16,r:44,b:28,l:60},iw=W-m.l-m.r,ih=H-m.t-m.b;
+let cum=0;const pts=[0].concat(R.trades.map(t=>cum+=t.dollars));
+let lo=Math.min(...pts),hi=Math.max(...pts);const span=Math.max(hi-lo,1);lo-=span*.08;hi+=span*.08;
+const x=i=>m.l+iw*(i/Math.max(pts.length-1,1)),y=v=>m.t+ih*(1-(v-lo)/(hi-lo));
+const ns="http://www.w3.org/2000/svg",el=(t,a)=>{const n=document.createElementNS(ns,t);for(const k in a)n.setAttribute(k,a[k]);return n};
+const step=Math.max(Math.round(span/4/500)*500,500);
+for(let g=Math.floor(lo/step)*step;g<=hi;g+=step){if(g<lo)continue;
+svg.appendChild(el("line",{x1:m.l,x2:W-m.r,y1:y(g),y2:y(g),stroke:g===0?css("--baseline"):css("--grid"),"stroke-width":1}));
+const t=el("text",{x:m.l-8,y:y(g)+4,"text-anchor":"end","font-size":11,fill:css("--ink-muted")});t.textContent="$"+g.toLocaleString();svg.appendChild(t);}
+svg.appendChild(el("polyline",{points:pts.map((v,i)=>`${x(i)},${y(v)}`).join(" "),fill:"none",stroke:css("--pos"),"stroke-width":2,"stroke-linejoin":"round"}));
+svg.appendChild(el("circle",{cx:x(pts.length-1),cy:y(pts[pts.length-1]),r:4,fill:css("--pos")}));
+const f=el("text",{x:x(pts.length-1)-8,y:y(pts[pts.length-1])-10,"text-anchor":"end","font-size":12,"font-weight":650,fill:css("--ink-1")});
+f.textContent=fm(pts[pts.length-1]);svg.appendChild(f);}
+draw();
+if(window.matchMedia)window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",draw);
+})();
+</script></body></html>
