@@ -94,6 +94,9 @@
     color: var(--ink-2); font-weight: 400; text-transform: none; letter-spacing: 0; }
   .lg { display: inline-flex; align-items: center; gap: 5px; }
   .sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .tab { cursor: pointer; padding: 2px 8px; border-radius: 5px; color: var(--ink-muted); }
+  .tab.sel { background: var(--page); color: var(--ink-1); }
+  .tab:hover { color: var(--ink-1); }
 </style>
 </head>
 <body>
@@ -132,9 +135,19 @@
     </div>
 
     <div class="panel" id="blotterPanel">
-      <div class="panel-h">Trade blotter <div class="spacer"></div>
+      <div class="panel-h">
+        <span class="tab sel" id="tabBlotter">Trade blotter</span>
+        <span class="tab" id="tabLab">System lab</span>
+        <div class="spacer"></div>
         <span style="font-weight:400;text-transform:none;letter-spacing:0" id="blotCount"></span></div>
       <div id="blotterWrap"><table id="blotter"></table></div>
+      <div id="labWrap" style="display:none;overflow-y:auto;flex:1">
+        <table id="labTable"></table>
+        <div class="note">Ranked by total cost-adjusted R across all markets. The top row
+        of any variant grid always looks good by luck — trust only ✅ robust rows
+        (positive overall + positive out-of-sample + ≥2 markets), and only if they
+        stay robust as data accumulates.</div>
+      </div>
     </div>
 
     <div class="panel" id="winPanel">
@@ -205,6 +218,7 @@ function boot(keepDay) {
   buildEquity();
   buildBlotter();
   buildWindows();
+  buildLab();
   drawChart();
 }
 
@@ -311,6 +325,42 @@ function buildWindows() {
         `<tr><td>${m.market}</td><td class="r">0</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>`
       ).join("") + "</tbody>";
   }
+}
+
+/* ===== system lab ===== */
+function buildLab() {
+  const lab = PAYLOAD.results.lab || [];
+  if (!lab.length) { $("tabLab").style.display = "none"; return; }
+  const cell = d => (!d || !d.n) ? "—" : `${d.avg_r} <span style="color:var(--ink-muted)">(${d.n})</span>`;
+  $("labTable").innerHTML =
+    `<thead><tr><th>#</th><th>Variant</th><th class="r">Trades</th><th class="r">Win %</th>
+     <th class="r">Avg R</th><th class="r">Total R</th><th class="r">PF</th>
+     <th class="r">NQ</th><th class="r">ES</th><th class="r">CL</th>
+     <th class="r">IS → OOS</th><th>Robust</th></tr></thead><tbody>` +
+    lab.map((v, i) => !v.n ?
+      `<tr><td>${i + 1}</td><td>${v.label}</td><td class="r">0</td>
+       <td class="r" colspan="9">no trades</td></tr>` :
+      `<tr><td>${i + 1}</td><td>${v.label}</td><td class="r">${v.n}</td>
+       <td class="r">${v.win_rate}%</td>
+       <td class="r ${v.avg_r >= 0 ? 'up' : 'dn'}">${v.avg_r}</td>
+       <td class="r ${v.total_r >= 0 ? 'up' : 'dn'}">${v.total_r}</td>
+       <td class="r">${v.pf == null ? "∞" : v.pf}</td>
+       <td class="r">${cell(v.per_market.NQ)}</td>
+       <td class="r">${cell(v.per_market.ES)}</td>
+       <td class="r">${cell(v.per_market.CL)}</td>
+       <td class="r">${v.is_avg_r ?? "—"} → ${v.oos_avg_r ?? "—"}</td>
+       <td>${v.robust ? "✅" : "—"}</td></tr>`).join("") + "</tbody>";
+}
+$("tabBlotter").onclick = () => setTab(true);
+$("tabLab").onclick = () => setTab(false);
+function setTab(blot) {
+  $("tabBlotter").classList.toggle("sel", blot);
+  $("tabLab").classList.toggle("sel", !blot);
+  $("blotterWrap").style.display = blot ? "" : "none";
+  $("labWrap").style.display = blot ? "none" : "";
+  $("blotCount").textContent = blot
+    ? (PAYLOAD.results.trades || []).length + " trades"
+    : (PAYLOAD.results.lab || []).length + " variants × all markets";
 }
 
 /* ===== candlestick chart ===== */
