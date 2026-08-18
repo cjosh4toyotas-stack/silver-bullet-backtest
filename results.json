@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-08-18 03:19",
+ "generated_utc": "2026-08-18 03:45",
  "rules_version": "1.0 (2026-08-17)",
  "coverage": [
   {
@@ -10,9 +10,9 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 13598,
+   "bars": 13605,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-08-17 23:05"
+   "last_ny": "2026-08-17 23:35"
   }
  ],
  "overall": {
@@ -279,7 +279,7 @@
    "dollars": -810.0
   },
   {
-   "contract": "NQF-continuous",
+   "contract": "NQ202609",
    "day": "2026-07-31",
    "window": "London 3-4am",
    "bias": "bull",
