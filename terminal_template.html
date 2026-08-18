@@ -102,7 +102,16 @@
 <body>
 <div class="app">
   <div class="topbar">
-    <span class="sym">NQ <small id="contractLbl"></small></span>
+    <span class="sym" id="symLbl">NQ <small id="contractLbl"></small></span>
+    <span style="display:inline-flex;gap:2px" id="mktTabs">
+      <span class="tab sel" data-m="NQ">NQ</span>
+      <span class="tab" data-m="ES">ES</span>
+      <span class="tab" data-m="CL">CL</span>
+    </span>
+    <span style="display:inline-flex;gap:2px" id="specTabs">
+      <span class="tab sel" data-s="old">OLD</span>
+      <span class="tab" data-s="new">NEW</span>
+    </span>
     <span class="px" id="lastPx"></span>
     <span class="chg" id="sessChg"></span>
     <span class="updated" id="updatedLbl"></span>
@@ -191,27 +200,81 @@ let PAYLOAD = __PAYLOAD__;
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fm = d => (d >= 0 ? "+$" : "−$") + Math.abs(Math.round(d)).toLocaleString();
-const WINDOWS = [[180, 240], [600, 660], [840, 900]]; // NY minutes-of-day
+function winList() {   // shaded bands follow the selected spec+market (NY minutes)
+  if (state.spec === "new")
+    return state.market === "CL" ? [[540, 600], [810, 870]]
+                                 : [[180, 240], [600, 660]];
+  return [[180, 240], [600, 660], [840, 900]];
+}
 
-let state = { contract: null, day: null, selTrade: null };
+let state = { market: "NQ", spec: "old", day: null, selTrade: null };
+const SPEC_LABELS = {
+  old: "OLD — base spec (all 3 equity windows, 2R, sweep stop)",
+  new: { NQ: "NEW — London+AM only · 2R · breakeven",
+         ES: "NEW v2 — London+AM only · 2R · breakeven",
+         CL: "NEW — NYMEX open + pre-settle · 2R · breakeven" },
+};
 
-function contracts() { return Object.keys(PAYLOAD.bars); }
-function bars() { return PAYLOAD.bars[state.contract] || []; }
-function daysOf(c) {
+function keyFor(market) {
+  if (market !== "NQ") return PAYLOAD.bars[market] ? market : null;
+  let best = null, bestN = -1;
+  for (const k of Object.keys(PAYLOAD.bars)) {
+    if (k === "ES" || k === "CL") continue;
+    const n = PAYLOAD.bars[k].length;
+    if (n > bestN) { best = k; bestN = n; }
+  }
+  return best;
+}
+function bars() { const k = keyFor(state.market); return (k && PAYLOAD.bars[k]) || []; }
+function curTrades() {
+  const st = PAYLOAD.results.spec_trades;
+  if (st && st[state.spec] && st[state.spec][state.market])
+    return st[state.spec][state.market];
+  return state.market === "NQ" && state.spec === "old"
+    ? (PAYLOAD.results.trades || []) : [];
+}
+function summarize(tr) {
+  const s = { n: tr.length, wins: 0, dollars: 0, pts: 0, targets: 0, stops: 0,
+              time: 0, be: 0, gw: 0, gl: 0, maxdd: 0 };
+  let eq = 0, peak = 0;
+  tr.forEach(t => {
+    if (t.pts > 0) s.wins++;
+    s.dollars += t.dollars; s.pts += t.pts;
+    if (t.outcome === "target") s.targets++;
+    else if (t.outcome === "stop") s.stops++;
+    else if (t.outcome === "time") s.time++;
+    else s.be++;
+    if (t.dollars > 0) s.gw += t.dollars; else s.gl -= t.dollars;
+    eq += t.dollars; peak = Math.max(peak, eq);
+    s.maxdd = Math.max(s.maxdd, peak - eq);
+  });
+  s.win_rate = s.n ? Math.round(1000 * s.wins / s.n) / 10 : 0;
+  s.pf = s.gl > 0 ? Math.round(100 * s.gw / s.gl) / 100 : (s.gw > 0 ? null : 0);
+  s.avg = s.n ? s.dollars / s.n : 0;
+  return s;
+}
+function daysOf(k) {
   const s = new Set();
-  (PAYLOAD.bars[c] || []).forEach(b => s.add(b[6]));
+  (PAYLOAD.bars[k] || []).forEach(b => s.add(b[6]));
   return [...s].sort();
 }
 
 /* ===== boot ===== */
 function boot(keepDay) {
-  const cs = contracts();
-  state.contract = cs[cs.length - 1];
-  const ds = daysOf(state.contract);
+  const k = keyFor(state.market);
+  const ds = daysOf(k);
   if (!keepDay || !ds.includes(state.day)) state.day = ds[ds.length - 1];
-  $("contractLbl").textContent = state.contract + " · 5m";
+  $("symLbl").childNodes[0].textContent = state.market + " ";
+  $("contractLbl").textContent = k + " · 5m";
   $("rulesLbl").textContent = (PAYLOAD.results.rules_version || "1.0").split(" ")[0];
-  $("updatedLbl").textContent = "updated " + PAYLOAD.results.generated_utc + " UTC";
+  const specLbl = state.spec === "old" ? SPEC_LABELS.old
+                  : SPEC_LABELS.new[state.market];
+  $("updatedLbl").textContent = specLbl + " · updated "
+    + PAYLOAD.results.generated_utc + " UTC";
+  document.querySelectorAll("#mktTabs .tab").forEach(t =>
+    t.classList.toggle("sel", t.dataset.m === state.market));
+  document.querySelectorAll("#specTabs .tab").forEach(t =>
+    t.classList.toggle("sel", t.dataset.s === state.spec));
   const bs = bars();
   if (bs.length) {
     const last = bs[bs.length - 1];
@@ -230,37 +293,43 @@ function boot(keepDay) {
   buildRetro();
   drawChart();
 }
+document.querySelectorAll("#mktTabs .tab").forEach(t => t.onclick = () => {
+  state.market = t.dataset.m; state.selTrade = null; boot(false);
+});
+document.querySelectorAll("#specTabs .tab").forEach(t => t.onclick = () => {
+  state.spec = t.dataset.s; state.selTrade = null; boot(true);
+});
 
 function buildDaySel() {
-  const ds = daysOf(state.contract);
+  const ds = daysOf(keyFor(state.market));
   $("daySel").innerHTML = ds.map(d => `<option ${d === state.day ? "selected" : ""}>${d}</option>`).join("");
 }
 $("daySel").onchange = e => { state.day = e.target.value; state.selTrade = null; drawChart(); };
 $("prevDay").onclick = () => stepDay(-1);
 $("nextDay").onclick = () => stepDay(1);
 function stepDay(dir) {
-  const ds = daysOf(state.contract);
+  const ds = daysOf(keyFor(state.market));
   const i = ds.indexOf(state.day) + dir;
   if (i >= 0 && i < ds.length) { state.day = ds[i]; state.selTrade = null; buildDaySel(); drawChart(); }
 }
 
 /* ===== stats ===== */
 function buildTiles() {
-  const o = PAYLOAD.results.overall || {};
+  const o = summarize(curTrades());
   const t = [
-    ["Net P&L", fm(o.total_dollars || 0), (o.total_pts || 0) + " pts"],
-    ["Trades", o.n || 0, `${o.wins || 0}W / ${(o.n || 0) - (o.wins || 0)}L`],
-    ["Win rate", (o.win_rate || 0) + "%", `${o.targets || 0} tgt · ${o.stops || 0} stop · ${o.time_exits || 0} time`],
-    ["Profit factor", o.profit_factor == null ? (o.n ? "∞" : "—") : o.profit_factor, "gross win/loss"],
-    ["Max drawdown", "$" + (o.max_drawdown_dollars || 0).toLocaleString(), "peak to trough"],
-    ["Avg / trade", fm(o.avg_dollars || 0), "after costs"],
+    ["Net P&L", fm(o.dollars), o.pts.toFixed(2) + " pts"],
+    ["Trades", o.n, `${o.wins}W / ${o.n - o.wins}L`],
+    ["Win rate", o.win_rate + "%", `${o.targets} tgt · ${o.stops} stop · ${o.time} time` + (o.be ? ` · ${o.be} BE` : "")],
+    ["Profit factor", o.pf == null ? (o.n ? "∞" : "—") : o.pf, "gross win/loss"],
+    ["Max drawdown", "$" + Math.round(o.maxdd).toLocaleString(), "peak to trough"],
+    ["Avg / trade", fm(o.avg), "after costs"],
   ];
   $("tiles").innerHTML = t.map(x =>
     `<div class="tile"><div class="k">${x[0]}</div><div class="v">${x[1]}</div><div class="d">${x[2]}</div></div>`).join("");
 }
 
 function buildEquity() {
-  const tr = PAYLOAD.results.trades || [];
+  const tr = curTrades();
   let c = 0; const pts = [0].concat(tr.map(t => c += t.dollars));
   const W = 300, H = 120, m = 10;
   let lo = Math.min(...pts), hi = Math.max(...pts);
@@ -279,8 +348,8 @@ function buildEquity() {
 
 /* ===== blotter ===== */
 function buildBlotter() {
-  const tr = PAYLOAD.results.trades || [];
-  $("blotCount").textContent = tr.length + " trades";
+  const tr = curTrades();
+  $("blotCount").textContent = `${state.market} · ${state.spec.toUpperCase()} · ${tr.length} trades`;
   $("blotter").innerHTML =
     `<thead><tr><th>#</th><th>Date</th><th>Window</th><th>Side</th>
      <th class="r">Entry</th><th class="r">Stop</th><th class="r">Target</th>
@@ -297,7 +366,6 @@ function buildBlotter() {
     row.onclick = () => {
       const t = tr[+row.dataset.i];
       state.selTrade = +row.dataset.i;
-      if (t.contract && PAYLOAD.bars[t.contract]) state.contract = t.contract;
       state.day = t.day;
       buildDaySel(); drawChart(); markSel();
     };
@@ -462,8 +530,7 @@ function drawChart() {
   if (!db.length) return;
   const padL = 8, padR = 62, padT = 10, padB = 24;
   const plotW = W - padL - padR, plotH = H - padT - padB;
-  const trades = (PAYLOAD.results.trades || [])
-    .filter(t => t.day === state.day && (!t.contract || t.contract === state.contract));
+  const trades = curTrades().filter(t => t.day === state.day);
   let lo = Math.min(...db.map(b => b[3])), hi = Math.max(...db.map(b => b[2]));
   trades.forEach(t => { lo = Math.min(lo, t.stop, t.target); hi = Math.max(hi, t.stop, t.target); });
   const span = Math.max(hi - lo, 1); lo -= span * .05; hi += span * .05;
@@ -476,7 +543,7 @@ function drawChart() {
 
   // window shading
   ctx.fillStyle = "rgba(57,135,229,0.10)";
-  WINDOWS.forEach(([a, b]) => {
+  winList().forEach(([a, b]) => {
     let i0 = null, i1 = null;
     db.forEach((bar, i) => {
       if (bar[7] >= a && bar[7] < b) { if (i0 === null) i0 = i; i1 = i; }
