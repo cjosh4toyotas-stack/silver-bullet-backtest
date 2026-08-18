@@ -138,8 +138,10 @@
     </div>
 
     <div class="panel" id="winPanel">
-      <div class="panel-h">Session windows (NY)</div>
-      <div id="winWrap"><table id="winTable"></table></div>
+      <div class="panel-h">Windows &amp; markets</div>
+      <div id="winWrap"><table id="winTable"></table>
+        <div class="subhead" id="mktHead" style="display:none">Cross-market (R = 1 unit of risk)</div>
+        <table id="mktTable"></table></div>
       <div class="note">Mechanical Silver Bullet rules v<span id="rulesLbl"></span> ·
         IBKR 10-min-delayed data · $20/pt · $10 costs/trade · 1 contract ·
         small samples prove nothing — not financial advice.</div>
@@ -295,6 +297,20 @@ function buildWindows() {
        <td class="r">${w.profit_factor == null ? "∞" : w.profit_factor}</td></tr>` :
       `<tr><td>${w.label}</td><td class="r">0</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>`
     ).join("") + "</tbody>";
+  const mk = PAYLOAD.results.markets || [];
+  if (mk.length > 1) {
+    $("mktHead").style.display = "";
+    $("mktTable").innerHTML =
+      `<thead><tr><th>Market</th><th class="r">Trades</th><th class="r">Win %</th>
+       <th class="r">Avg R</th><th class="r">Total R</th><th class="r">PF</th></tr></thead><tbody>` +
+      mk.map(m => m.n ?
+        `<tr><td>${m.market}</td><td class="r">${m.n}</td><td class="r">${m.win_rate}%</td>
+         <td class="r ${m.avg_r >= 0 ? 'up' : 'dn'}">${m.avg_r}</td>
+         <td class="r ${m.total_r >= 0 ? 'up' : 'dn'}">${m.total_r}</td>
+         <td class="r">${m.profit_factor_r == null ? "∞" : m.profit_factor_r}</td></tr>` :
+        `<tr><td>${m.market}</td><td class="r">0</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>`
+      ).join("") + "</tbody>";
+  }
 }
 
 /* ===== candlestick chart ===== */
