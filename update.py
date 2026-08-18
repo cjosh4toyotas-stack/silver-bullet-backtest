@@ -267,9 +267,10 @@ def make_readme(res, coverage, path):
     a("# Silver Bullet Strategy — Accumulating NQ Backtest")
     a("")
     a("Fully mechanical backtest of the ICT \"Silver Bullet\" setup on E-mini "
-      "Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically twice a "
-      "week from Interactive Brokers data. Every run re-tests the entire "
-      "accumulated history, so the trade sample below grows over time.")
+      "Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a "
+      "schedule (GitHub Actions pulling delayed Yahoo Finance data, plus "
+      "optional IBKR pulls). Every run re-tests the entire accumulated "
+      "history, so the trade sample below grows over time.")
     a("")
     a(f"**Last updated:** {res['generated_utc']} UTC · "
       f"**Rules:** v{RULES_VERSION} · **Data:** "
