@@ -35,7 +35,18 @@ NY = ZoneInfo("America/New_York")
 TICK = 0.25
 POINT_VALUE = 20.0
 COST_RT_DOLLARS = 10.0
-WINDOWS = [("London 3-4am", 3), ("AM 10-11am", 10), ("PM 2-3pm", 14)]
+WINDOWS = [("London 3-4am", 180), ("AM 10-11am", 600), ("PM 2-3pm", 840)]
+
+# Oil-native candidate windows (minutes after NY midnight, 1h each) — CL's
+# liquidity events differ from equity indices: Brent/London flow, the NYMEX
+# open, the Wednesday 10:30 EIA inventory report, and the 2:30 settlement.
+OIL_WINDOWS = [
+    ("Brent/London 3-4a", 180),
+    ("NYMEX open 9-10a", 540),
+    ("EIA 10:30-11:30a", 630),
+    ("Midday 12-1p", 720),
+    ("Pre-settle 1:30-2:30p", 810),
+]
 LOOKBACK = 24
 PRE_WINDOW_BARS = 6
 MAX_HOLD = 24
@@ -154,7 +165,8 @@ def find_fvg(bars, start, end, bias, min_gap_fn):
     return None
 
 
-def run_backtest(bars, contract, market="NQ", variant=None):
+def run_backtest(bars, contract, market="NQ", variant=None, windows=None):
+    wlist = windows or WINDOWS
     cfg = MARKETS.get(market, MARKETS["NQ"])
     tick, pv = cfg["tick"], cfg["pv"]
     v = variant or {}
@@ -168,8 +180,9 @@ def run_backtest(bars, contract, market="NQ", variant=None):
     n = len(bars)
     days = sorted({b["ny"].date() for b in bars})
     for day in days:
-        for wname, whour in WINDOWS:
-            wopen = datetime(day.year, day.month, day.day, whour, 0, tzinfo=NY)
+        for wname, wmin in wlist:
+            wopen = (datetime(day.year, day.month, day.day, tzinfo=NY)
+                     + timedelta(minutes=wmin))
             wclose = wopen + timedelta(hours=1)
             scan_start = wopen - timedelta(minutes=30)
             idx = [i for i, b in enumerate(bars) if scan_start <= b["ny"] < wclose]
@@ -301,6 +314,28 @@ def run_system_lab(market_bars):
                              and (row.get("oos_avg_r") or 0) > 0
                              and pos_mkts >= 2)
         rows.append(row)
+    rows.sort(key=lambda r: r.get("total_r") or -999, reverse=True)
+    return rows
+
+
+def run_oil_lab(cl_bars):
+    """Window scan for CL: oil-native windows x {1R, 2R}, IS/OOS split."""
+    rows = []
+    for wname, wmin in OIL_WINDOWS:
+        for tr_ in (1.0, 2.0):
+            t = run_backtest(cl_bars, "CL-continuous", market="CL",
+                             variant={"target_r": tr_, "stop_mode": "sweep"},
+                             windows=[(wname, wmin)])
+            t.sort(key=lambda x: (x["day"], x["entry_time"]))
+            split = int(len(t) * 0.7)
+            row = {"id": f"cl-{wmin}-{tr_:g}",
+                   "label": f"{wname} · {tr_:g}R", **lab_stats(t),
+                   "is_avg_r": lab_stats(t[:split]).get("avg_r"),
+                   "oos_avg_r": lab_stats(t[split:]).get("avg_r")}
+            row["robust"] = bool(row.get("n", 0) >= 10
+                                 and (row.get("avg_r") or 0) > 0
+                                 and (row.get("oos_avg_r") or 0) > 0)
+            rows.append(row)
     rows.sort(key=lambda r: r.get("total_r") or -999, reverse=True)
     return rows
 
@@ -504,6 +539,27 @@ def make_readme(res, coverage, path):
           f"{lr.get('is_avg_r', '—')} → {lr.get('oos_avg_r', '—')} | "
           f"{'✅' if lr.get('robust') else '—'} |")
     a("")
+    if res.get("oil_lab"):
+        a("## Oil Lab — a Silver Bullet restructured for CL")
+        a("")
+        a("Crude oil's liquidity clock differs from equity indices, so the "
+          "same sweep→FVG mechanics are scanned across oil-native windows: "
+          "Brent/London flow, the NYMEX open, the 10:30 EIA report hour, "
+          "midday, and pre-settlement. Same honesty rules as the System Lab — "
+          "trust ✅ rows only, and only if they persist as data grows.")
+        a("")
+        a("| Rank | CL window · target | Trades | Win % | Avg R | Total R | PF | IS → OOS | Robust |")
+        a("|---|---|---|---|---|---|---|---|---|")
+        for i, orow in enumerate(res["oil_lab"], 1):
+            if not orow.get("n"):
+                a(f"| {i} | {orow['label']} | 0 | — | — | — | — | — | — |")
+                continue
+            pf = orow["pf"] if orow.get("pf") is not None else "∞"
+            a(f"| {i} | {orow['label']} | {orow['n']} | {orow['win_rate']}% | "
+              f"{orow['avg_r']} | {orow['total_r']} | {pf} | "
+              f"{orow.get('is_avg_r', '—')} → {orow.get('oos_avg_r', '—')} | "
+              f"{'✅' if orow.get('robust') else '—'} |")
+        a("")
     a("## Recent trades")
     a("")
     a("| Date | Window | Dir | Entry | Risk (pts) | Exit | P&L |")
@@ -718,6 +774,8 @@ def main():
         "markets": market_rows,
         "market_trades": market_trades,
         "lab": run_system_lab(market_bars),
+        "oil_lab": (run_oil_lab(market_bars["CL"])
+                    if "CL" in market_bars else []),
     }
 
     with open(os.path.join(ROOT, "results.json"), "w") as f:
