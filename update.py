@@ -58,6 +58,34 @@ MARKETS = {
 }
 MARKETS_INBOX = "/tmp/sb_markets"   # fetch_yahoo.py drops extra-market CSVs here
 
+# ---- System Lab: mechanical variants of the Silver Bullet spec ----
+# Every variant runs on every market; scored in cost-adjusted R with an
+# in-sample (first 70% of trades) vs out-of-sample (last 30%) split.
+VARIANTS = [
+    {"id": "t10-sweep", "label": "1R target · stop@sweep",
+     "target_r": 1.0, "stop_mode": "sweep"},
+    {"id": "t15-sweep", "label": "1.5R target · stop@sweep",
+     "target_r": 1.5, "stop_mode": "sweep"},
+    {"id": "t20-sweep", "label": "2R target · stop@sweep (base)",
+     "target_r": 2.0, "stop_mode": "sweep"},
+    {"id": "t30-sweep", "label": "3R target · stop@sweep",
+     "target_r": 3.0, "stop_mode": "sweep"},
+    {"id": "t10-gap", "label": "1R target · stop@gap edge",
+     "target_r": 1.0, "stop_mode": "gap"},
+    {"id": "t15-gap", "label": "1.5R target · stop@gap edge",
+     "target_r": 1.5, "stop_mode": "gap"},
+    {"id": "t20-gap", "label": "2R target · stop@gap edge",
+     "target_r": 2.0, "stop_mode": "gap"},
+    {"id": "t30-gap", "label": "3R target · stop@gap edge",
+     "target_r": 3.0, "stop_mode": "gap"},
+    {"id": "fade", "label": "FADE the setup (take opposite side)",
+     "target_r": 2.0, "stop_mode": "sweep", "reversed": True},
+    {"id": "notime", "label": "2R · no time exit (hold 6.5h)",
+     "target_r": 2.0, "stop_mode": "sweep", "max_hold": 78},
+    {"id": "be1r", "label": "2R · breakeven stop after +1R",
+     "target_r": 2.0, "stop_mode": "sweep", "breakeven": True},
+]
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT, "data")
 RESULTS_DIR = os.path.join(ROOT, "results")
@@ -126,9 +154,16 @@ def find_fvg(bars, start, end, bias, min_gap_fn):
     return None
 
 
-def run_backtest(bars, contract, market="NQ"):
+def run_backtest(bars, contract, market="NQ", variant=None):
     cfg = MARKETS.get(market, MARKETS["NQ"])
     tick, pv = cfg["tick"], cfg["pv"]
+    v = variant or {}
+    target_r = v.get("target_r", 2.0)
+    stop_mode = v.get("stop_mode", "sweep")
+    rev = v.get("reversed", False)
+    max_hold = v.get("max_hold", MAX_HOLD)
+    breakeven = v.get("breakeven", False)
+    cost_pts = COST_RT_DOLLARS / pv
     trades = []
     n = len(bars)
     days = sorted({b["ny"].date() for b in bars})
@@ -154,7 +189,10 @@ def run_backtest(bars, contract, market="NQ"):
                 continue
             fi, gfar, gnear = fvg
             entry = gnear
-            stop = sweep_ext - tick if bias == "bull" else sweep_ext + tick
+            if stop_mode == "gap":
+                stop = gfar - tick if bias == "bull" else gfar + tick
+            else:
+                stop = sweep_ext - tick if bias == "bull" else sweep_ext + tick
             if bias == "bull" and stop >= entry:
                 continue
             if bias == "bear" and stop <= entry:
@@ -162,30 +200,45 @@ def run_backtest(bars, contract, market="NQ"):
             risk = abs(entry - stop)
             if risk <= 0 or risk > cfg["max_stop"](entry):
                 continue
-            tgt = entry + 2 * risk if bias == "bull" else entry - 2 * risk
+            # fill condition is defined by the SETUP direction (price returning
+            # to the gap edge), regardless of which side the variant then takes
+            setup_bias = bias
+            if rev:
+                bias = "bear" if bias == "bull" else "bull"
+                stop = entry + risk if bias == "bear" else entry - risk
+            tgt = (entry + target_r * risk if bias == "bull"
+                   else entry - target_r * risk)
             fill_i = None
             for j in range(fi + 1, i1):
                 b = bars[j]
-                if (b["l"] <= entry) if bias == "bull" else (b["h"] >= entry):
+                if (b["l"] <= entry) if setup_bias == "bull" else (b["h"] >= entry):
                     fill_i = j
                     break
             if fill_i is None:
                 continue
             outcome, exit_px, exit_i = None, None, None
-            for j in range(fill_i, min(fill_i + MAX_HOLD + 1, n)):
+            be_armed = False
+            for j in range(fill_i, min(fill_i + max_hold + 1, n)):
                 b = bars[j]
                 if bias == "bull":
                     hit_stop, hit_tgt = b["l"] <= stop, b["h"] >= tgt
                 else:
                     hit_stop, hit_tgt = b["h"] >= stop, b["l"] <= tgt
                 if hit_stop:
-                    outcome, exit_px, exit_i = "stop", stop, j
+                    outcome, exit_px, exit_i = ("breakeven" if be_armed and
+                        abs(stop - entry) < tick / 2 else "stop"), stop, j
                     break
                 if hit_tgt:
                     outcome, exit_px, exit_i = "target", tgt, j
                     break
+                if breakeven and not be_armed:
+                    reached_1r = (b["h"] >= entry + risk if bias == "bull"
+                                  else b["l"] <= entry - risk)
+                    if reached_1r:
+                        stop = entry          # applies from the NEXT bar
+                        be_armed = True
             if outcome is None:
-                exit_i = min(fill_i + MAX_HOLD, n - 1)
+                exit_i = min(fill_i + max_hold, n - 1)
                 outcome, exit_px = "time", bars[exit_i]["c"]
             pts = (exit_px - entry) if bias == "bull" else (entry - exit_px)
             trades.append({
@@ -199,9 +252,57 @@ def run_backtest(bars, contract, market="NQ"):
                 "risk_pts": round(risk, 2), "outcome": outcome,
                 "exit": round(exit_px, 2), "pts": round(pts, 2),
                 "r": round(pts / risk, 2),
+                "r_net": round((pts - cost_pts) / risk, 3),
                 "dollars": round(pts * pv - COST_RT_DOLLARS, 2),
             })
     return trades
+
+
+def lab_stats(trades):
+    """Cost-adjusted R stats for a set of trades."""
+    if not trades:
+        return {"n": 0}
+    rs = [t["r_net"] for t in trades]
+    pos = sum(r for r in rs if r > 0)
+    neg = -sum(r for r in rs if r < 0)
+    return {
+        "n": len(trades),
+        "win_rate": round(100 * sum(1 for t in trades if t["pts"] > 0) / len(trades), 1),
+        "avg_r": round(sum(rs) / len(rs), 3),
+        "total_r": round(sum(rs), 2),
+        "pf": (round(pos / neg, 2) if neg > 0 else None),
+    }
+
+
+def run_system_lab(market_bars):
+    """Run every variant on every market. market_bars: {market: bars}."""
+    rows = []
+    for v in VARIANTS:
+        per_market, all_trades, is_trades, oos_trades = {}, [], [], []
+        for m, bars in market_bars.items():
+            tr = run_backtest(bars, m, market=m, variant=v)
+            tr.sort(key=lambda t: (t["day"], t["entry_time"]))
+            split = int(len(tr) * 0.7)
+            is_trades += tr[:split]
+            oos_trades += tr[split:]
+            all_trades += tr
+            s = lab_stats(tr)
+            per_market[m] = {"n": s.get("n", 0), "avg_r": s.get("avg_r")}
+        row = {"id": v["id"], "label": v["label"], **lab_stats(all_trades),
+               "per_market": per_market,
+               "is_avg_r": lab_stats(is_trades).get("avg_r"),
+               "oos_avg_r": lab_stats(oos_trades).get("avg_r")}
+        # robustness flag: positive overall AND positive out-of-sample AND
+        # positive in at least 2 markets with trades
+        pos_mkts = sum(1 for pm in per_market.values()
+                       if pm["n"] > 0 and (pm["avg_r"] or 0) > 0)
+        row["robust"] = bool(row.get("n", 0) >= 10
+                             and (row.get("avg_r") or 0) > 0
+                             and (row.get("oos_avg_r") or 0) > 0
+                             and pos_mkts >= 2)
+        rows.append(row)
+    rows.sort(key=lambda r: r.get("total_r") or -999, reverse=True)
+    return rows
 
 
 def summarize_market(trades, market):
@@ -372,6 +473,36 @@ def make_readme(res, coverage, path):
               f"{fmt_money(mrow['total_dollars'])} |")
         else:
             a(f"| {mrow['market']} | 0 | — | — | — | — | — |")
+    a("")
+    a("## System Lab — which variant is most profitable?")
+    a("")
+    a("Every mechanical variant of the strategy, run on all markets, ranked by "
+      "total cost-adjusted R (profit in units of risk, after $10/trade costs). "
+      "**How to read this honestly:** with this many variants, the top row "
+      "will always look good by luck alone. Trust a variant only if it has a "
+      "✅ robust flag — positive overall, positive **out-of-sample** (the last "
+      "30% of trades, which it was not selected on), and positive in at least "
+      "two markets — and only if it KEEPS its flag as data accumulates over "
+      "the coming months.")
+    a("")
+    a("| Rank | Variant | Trades | Win % | Avg R | Total R | PF | "
+      "NQ avg R | ES avg R | CL avg R | IS → OOS | Robust |")
+    a("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for i, lr in enumerate(res.get("lab", []), 1):
+        if not lr.get("n"):
+            a(f"| {i} | {lr['label']} | 0 | — | — | — | — | — | — | — | — | — |")
+            continue
+        pm = lr.get("per_market", {})
+        def cell(mk):
+            d = pm.get(mk)
+            return ("—" if not d or not d["n"]
+                    else f"{d['avg_r']} ({d['n']})")
+        pf = lr["pf"] if lr.get("pf") is not None else "∞"
+        a(f"| {i} | {lr['label']} | {lr['n']} | {lr['win_rate']}% | "
+          f"{lr['avg_r']} | {lr['total_r']} | {pf} | {cell('NQ')} | "
+          f"{cell('ES')} | {cell('CL')} | "
+          f"{lr.get('is_avg_r', '—')} → {lr.get('oos_avg_r', '—')} | "
+          f"{'✅' if lr.get('robust') else '—'} |")
     a("")
     a("## Recent trades")
     a("")
@@ -553,6 +684,12 @@ def main():
     # cross-market robustness backtests (one continuous series per market)
     market_rows = [summarize_market(trades, "NQ")]
     market_trades = {}
+    market_bars = {}
+    # longest NQ series represents NQ in the system lab
+    nq_candidates = [(len(read_bars_csv(p)), p) for p in
+                     sorted(glob.glob(os.path.join(DATA_DIR, "*.csv")))]
+    if nq_candidates:
+        market_bars["NQ"] = read_bars_csv(max(nq_candidates)[1])
     for p in (sorted(glob.glob(os.path.join(markets_dir, "*.csv")))
               if os.path.isdir(markets_dir) else []):
         m = os.path.splitext(os.path.basename(p))[0]
@@ -567,6 +704,7 @@ def main():
         mtr = run_backtest(mbars, m + "-continuous", market=m)
         market_trades[m] = mtr
         market_rows.append(summarize_market(mtr, m))
+        market_bars[m] = mbars
 
     now_utc = datetime.now(ZoneInfo("UTC")).strftime("%Y-%m-%d %H:%M")
     res = {
@@ -579,6 +717,7 @@ def main():
         "trades": trades,
         "markets": market_rows,
         "market_trades": market_trades,
+        "lab": run_system_lab(market_bars),
     }
 
     with open(os.path.join(ROOT, "results.json"), "w") as f:
