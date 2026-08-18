@@ -69,6 +69,17 @@ MARKETS = {
 }
 MARKETS_INBOX = "/tmp/sb_markets"   # fetch_yahoo.py drops extra-market CSVs here
 
+# "NEW" spec per market (from the Aug-2026 parameter analysis): right
+# windows for each market + breakeven management. Old spec = base rules.
+NEW_SPECS = {
+    "NQ": {"windows": [("London 3-4am", 180), ("AM 10-11am", 600)],
+           "variant": {"target_r": 2.0, "stop_mode": "sweep", "breakeven": True}},
+    "ES": {"windows": [("London 3-4am", 180), ("AM 10-11am", 600)],
+           "variant": {"target_r": 2.0, "stop_mode": "sweep", "breakeven": True}},
+    "CL": {"windows": [("NYMEX open 9-10a", 540), ("Pre-settle 1:30-2:30p", 810)],
+           "variant": {"target_r": 2.0, "stop_mode": "sweep", "breakeven": True}},
+}
+
 # ---- System Lab: mechanical variants of the Silver Bullet spec ----
 # Every variant runs on every market; scored in cost-adjusted R with an
 # in-sample (first 70% of trades) vs out-of-sample (last 30%) split.
@@ -830,6 +841,15 @@ def main():
         "retro": run_retro(
             market_bars,
             trades + [t for mtr in market_trades.values() for t in mtr]),
+        "spec_trades": {
+            "old": {"NQ": trades, **market_trades},
+            "new": {m: sorted(
+                        run_backtest(market_bars[m], m, market=m,
+                                     variant=NEW_SPECS[m]["variant"],
+                                     windows=NEW_SPECS[m]["windows"]),
+                        key=lambda t: (t["day"], t["entry_time"]))
+                    for m in market_bars if m in NEW_SPECS},
+        },
     }
 
     with open(os.path.join(ROOT, "results.json"), "w") as f:
@@ -852,7 +872,9 @@ def main():
     tpl_path = os.path.join(ROOT, "terminal_template.html")
     if os.path.exists(tpl_path):
         bars_payload = {}
-        for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.csv"))):
+        for path in (sorted(glob.glob(os.path.join(DATA_DIR, "*.csv")))
+                     + sorted(glob.glob(os.path.join(DATA_DIR, "markets",
+                                                     "*.csv")))):
             contract = os.path.splitext(os.path.basename(path))[0]
             bars_payload[contract] = [
                 [int(b["utc"].timestamp()), b["o"], b["h"], b["l"], b["c"],
