@@ -142,6 +142,12 @@
         <span style="font-weight:400;text-transform:none;letter-spacing:0" id="blotCount"></span></div>
       <div id="blotterWrap"><table id="blotter"></table></div>
       <div id="labWrap" style="display:none;overflow-y:auto;flex:1">
+        <div class="subhead" id="retroHead" style="display:none">Old vs New — retro, cumulative R per trade</div>
+        <div id="retroBox" style="display:none;padding:4px 12px 0">
+          <svg id="retroChart" viewBox="0 0 900 190" width="100%"></svg>
+          <table id="retroTable" style="margin:6px 0 10px"></table>
+        </div>
+        <div class="subhead">Variant leaderboard</div>
         <table id="labTable"></table>
         <div class="subhead" id="oilHead" style="display:none">Oil Lab — CL-native windows (sweep→FVG, oil's own clock)</div>
         <table id="oilTable"></table>
@@ -221,6 +227,7 @@ function boot(keepDay) {
   buildBlotter();
   buildWindows();
   buildLab();
+  buildRetro();
   drawChart();
 }
 
@@ -327,6 +334,62 @@ function buildWindows() {
         `<tr><td>${m.market}</td><td class="r">0</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>`
       ).join("") + "</tbody>";
   }
+}
+
+/* ===== old vs new retro ===== */
+function buildRetro() {
+  const rt = PAYLOAD.results.retro;
+  if (!rt || !rt.old || !rt.new) return;
+  $("retroHead").style.display = "";
+  $("retroBox").style.display = "";
+  const NEWC = "#3987e5", OLDC = "#d95926";   // categorical slots 1 & 2 (dark)
+  const series = [
+    { key: "new", col: NEWC, d: rt.new },
+    { key: "old", col: OLDC, d: rt.old },
+  ];
+  const W = 900, H = 190, m = { t: 14, r: 150, b: 22, l: 46 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  let lo = 0, hi = 0, maxN = 1;
+  series.forEach(s => {
+    const vals = s.d.curve.map(p => p.cum_r);
+    lo = Math.min(lo, ...vals); hi = Math.max(hi, ...vals);
+    maxN = Math.max(maxN, s.d.curve.length);
+  });
+  const span = Math.max(hi - lo, 1); lo -= span * .08; hi += span * .08;
+  const X = i => m.l + iw * (i / maxN);
+  const Y = v => m.t + ih * (1 - (v - lo) / (hi - lo));
+  let svg = "";
+  const step = Math.max(Math.round(span / 4), 2);
+  for (let g = Math.ceil(lo / step) * step; g <= hi; g += step) {
+    svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(g)}" y2="${Y(g)}"
+      stroke="${g === 0 ? css('--baseline') : css('--grid')}" stroke-width="1"/>
+      <text x="${m.l - 6}" y="${Y(g) + 4}" text-anchor="end" font-size="10"
+      fill="${css('--ink-muted')}">${g > 0 ? "+" : ""}${g}R</text>`;
+  }
+  series.forEach(s => {
+    const pts = [[X(0), Y(0)]].concat(s.d.curve.map((p, i) => [X(i + 1), Y(p.cum_r)]));
+    svg += `<polyline points="${pts.map(p => p.join(",")).join(" ")}" fill="none"
+      stroke="${s.col}" stroke-width="2" stroke-linejoin="round"/>`;
+    const last = pts[pts.length - 1];
+    const endv = s.d.curve.length ? s.d.curve[s.d.curve.length - 1].cum_r : 0;
+    svg += `<circle cx="${last[0]}" cy="${last[1]}" r="3.5" fill="${s.col}"/>
+      <text x="${last[0] + 7}" y="${last[1] + 4}" font-size="11" font-weight="600"
+      fill="${s.col}">${s.key.toUpperCase()} ${endv > 0 ? "+" : ""}${endv}R</text>`;
+  });
+  svg += `<text x="${m.l}" y="${H - 5}" font-size="10" fill="${css('--ink-muted')}">trade # →</text>`;
+  $("retroChart").innerHTML = svg;
+  $("retroTable").innerHTML =
+    `<thead><tr><th>Spec</th><th class="r">Trades</th><th class="r">Win %</th>
+     <th class="r">Avg R</th><th class="r">Total R</th><th class="r">PF</th>
+     <th class="r">IS → OOS</th></tr></thead><tbody>` +
+    series.map(s => `<tr>
+      <td><span class="chip" style="background:${s.col};display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px"></span>${s.d.label}</td>
+      <td class="r">${s.d.n}</td><td class="r">${s.d.win_rate}%</td>
+      <td class="r ${s.d.avg_r >= 0 ? 'up' : 'dn'}">${s.d.avg_r}</td>
+      <td class="r ${s.d.total_r >= 0 ? 'up' : 'dn'}">${s.d.total_r}</td>
+      <td class="r">${s.d.pf == null ? "∞" : s.d.pf}</td>
+      <td class="r">${s.d.is_avg_r ?? "—"} → ${s.d.oos_avg_r ?? "—"}</td></tr>`).join("")
+    + "</tbody>";
 }
 
 /* ===== system lab ===== */
