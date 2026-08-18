@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silver Bullet Terminal — NQ</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --page: #0d0d0d;
+    --ink-1: #ffffff; --ink-2: #c3c2b7; --ink-muted: #898781;
+    --grid: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
+    --pos: #3987e5; --neg: #e66767; --accent: #3987e5;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+         background: var(--page); color: var(--ink-1); font-size: 13px; }
+  .app { display: grid; grid-template-rows: 44px 1fr; height: 100vh; }
+
+  /* top bar */
+  .topbar { display: flex; align-items: center; gap: 16px; padding: 0 14px;
+    background: var(--surface-1); border-bottom: 1px solid var(--border); }
+  .sym { font-weight: 700; font-size: 15px; letter-spacing: .3px; }
+  .sym small { color: var(--ink-muted); font-weight: 500; margin-left: 6px; }
+  .px { font-variant-numeric: tabular-nums; font-weight: 650; font-size: 15px; }
+  .chg { font-variant-numeric: tabular-nums; font-size: 12px; }
+  .spacer { flex: 1; }
+  .updated { color: var(--ink-muted); font-size: 11px; }
+  button, select, input {
+    background: var(--page); color: var(--ink-1); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 10px; font-size: 12px; font-family: inherit; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--ink-muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .main { display: grid; grid-template-columns: 1fr 300px; grid-template-rows: minmax(0,58%) minmax(0,42%);
+    gap: 8px; padding: 8px; min-height: 0; }
+  .panel { background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 8px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .panel-h { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 650;
+    color: var(--ink-2); text-transform: uppercase; letter-spacing: .6px; }
+  .panel-h .spacer { flex: 1; }
+
+  /* chart */
+  #chartPanel { grid-row: 1; grid-column: 1; }
+  #chartWrap { flex: 1; position: relative; min-height: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #tooltip { position: absolute; pointer-events: none; background: var(--page);
+    border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px;
+    font-size: 11px; line-height: 1.55; opacity: 0; z-index: 5;
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* right column */
+  #statsPanel { grid-row: 1; grid-column: 2; overflow-y: auto; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
+  .tile { background: var(--page); border: 1px solid var(--border); border-radius: 7px; padding: 9px 11px; }
+  .tile .k { font-size: 10px; color: var(--ink-muted); text-transform: uppercase;
+    letter-spacing: .5px; margin-bottom: 4px; }
+  .tile .v { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tile .d { font-size: 10px; color: var(--ink-2); margin-top: 2px; }
+  .subhead { padding: 8px 12px 2px; font-size: 11px; font-weight: 650; color: var(--ink-2);
+    text-transform: uppercase; letter-spacing: .6px; }
+  #eqsvg { width: 100%; height: 120px; display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { position: sticky; top: 0; background: var(--surface-1); text-align: left;
+    color: var(--ink-muted); font-weight: 550; padding: 6px 10px;
+    border-bottom: 1px solid var(--baseline); font-size: 10px;
+    text-transform: uppercase; letter-spacing: .5px; z-index: 2; }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--grid);
+       font-variant-numeric: tabular-nums; }
+  .r { text-align: right; } th.r { text-align: right; }
+  .up { color: var(--pos); } .dn { color: var(--neg); }
+
+  /* blotter */
+  #blotterPanel { grid-row: 2; grid-column: 1; }
+  #blotterWrap { overflow-y: auto; flex: 1; }
+  #blotterWrap tr { cursor: pointer; }
+  #blotterWrap tr:hover td { background: rgba(255,255,255,0.04); }
+  #blotterWrap tr.sel td { background: rgba(57,135,229,0.14); }
+
+  /* window stats */
+  #winPanel { grid-row: 2; grid-column: 2; }
+  #winWrap { overflow-y: auto; flex: 1; }
+  .note { padding: 8px 12px; color: var(--ink-muted); font-size: 10.5px; line-height: 1.5;
+    border-top: 1px solid var(--border); }
+  dialog { background: var(--surface-1); color: var(--ink-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px; max-width: 420px; margin: auto; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog p { font-size: 12px; color: var(--ink-2); line-height: 1.55; margin: 8px 0; }
+  dialog input { width: 100%; margin: 6px 0 12px; }
+  .legend { display: flex; gap: 14px; align-items: center; font-size: 10.5px;
+    color: var(--ink-2); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .lg { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="sym">NQ <small id="contractLbl"></small></span>
+    <span class="px" id="lastPx"></span>
+    <span class="chg" id="sessChg"></span>
+    <span class="updated" id="updatedLbl"></span>
+    <div class="spacer"></div>
+    <button id="prevDay" title="Previous session">‹</button>
+    <select id="daySel"></select>
+    <button id="nextDay" title="Next session">›</button>
+    <button id="refreshBtn" class="primary">Refresh from GitHub</button>
+  </div>
+
+  <div class="main">
+    <div class="panel" id="chartPanel">
+      <div class="panel-h">Price — 5 min
+        <div class="spacer"></div>
+        <div class="legend">
+          <span class="lg"><span class="sw" style="background:var(--pos)"></span>up</span>
+          <span class="lg"><span class="sw" style="background:var(--neg)"></span>down</span>
+          <span class="lg"><span class="sw" style="background:rgba(57,135,229,.18);border:1px solid rgba(57,135,229,.4)"></span>SB window</span>
+          <span class="lg">▲ entry &nbsp;· exit ✕ &nbsp;· ··· stop/target</span>
+        </div>
+      </div>
+      <div id="chartWrap"><canvas id="chart"></canvas><div id="tooltip"></div></div>
+    </div>
+
+    <div class="panel" id="statsPanel">
+      <div class="panel-h">Account — strategy P&amp;L</div>
+      <div class="tiles" id="tiles"></div>
+      <div class="subhead">Equity curve</div>
+      <svg id="eqsvg" viewBox="0 0 300 120" preserveAspectRatio="none"></svg>
+    </div>
+
+    <div class="panel" id="blotterPanel">
+      <div class="panel-h">Trade blotter <div class="spacer"></div>
+        <span style="font-weight:400;text-transform:none;letter-spacing:0" id="blotCount"></span></div>
+      <div id="blotterWrap"><table id="blotter"></table></div>
+    </div>
+
+    <div class="panel" id="winPanel">
+      <div class="panel-h">Session windows (NY)</div>
+      <div id="winWrap"><table id="winTable"></table></div>
+      <div class="note">Mechanical Silver Bullet rules v<span id="rulesLbl"></span> ·
+        IBKR 10-min-delayed data · $20/pt · $10 costs/trade · 1 contract ·
+        small samples prove nothing — not financial advice.</div>
+    </div>
+  </div>
+</div>
+
+<dialog id="tokenDlg">
+  <b>Refresh from GitHub</b>
+  <p>Pulls the latest data and results from
+  <code>cjosh4toyotas-stack/silver-bullet-backtest</code>. If the repo is
+  public, just hit Refresh. If it's private, paste a GitHub fine-grained token
+  with read access (used once, kept only in memory).</p>
+  <input type="password" id="tokenInput" placeholder="token (only needed for a private repo)">
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button id="dlgCancel">Cancel</button>
+    <button id="dlgGo" class="primary">Refresh</button>
+  </div>
+  <p id="dlgStatus"></p>
+</dialog>
+
+<script>
+/* ===== embedded snapshot (replaced on refresh) ===== */
+let PAYLOAD = __PAYLOAD__;
+
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fm = d => (d >= 0 ? "+$" : "−$") + Math.abs(Math.round(d)).toLocaleString();
+const WINDOWS = [[180, 240], [600, 660], [840, 900]]; // NY minutes-of-day
+
+let state = { contract: null, day: null, selTrade: null };
+
+function contracts() { return Object.keys(PAYLOAD.bars); }
+function bars() { return PAYLOAD.bars[state.contract] || []; }
+function daysOf(c) {
+  const s = new Set();
+  (PAYLOAD.bars[c] || []).forEach(b => s.add(b[6]));
+  return [...s].sort();
+}
+
+/* ===== boot ===== */
+function boot(keepDay) {
+  const cs = contracts();
+  state.contract = cs[cs.length - 1];
+  const ds = daysOf(state.contract);
+  if (!keepDay || !ds.includes(state.day)) state.day = ds[ds.length - 1];
+  $("contractLbl").textContent = state.contract + " · 5m";
+  $("rulesLbl").textContent = (PAYLOAD.results.rules_version || "1.0").split(" ")[0];
+  $("updatedLbl").textContent = "updated " + PAYLOAD.results.generated_utc + " UTC";
+  const bs = bars();
+  if (bs.length) {
+    const last = bs[bs.length - 1];
+    $("lastPx").textContent = last[4].toLocaleString(undefined, {minimumFractionDigits: 2});
+    const dayBars = bs.filter(b => b[6] === last[6]);
+    const chg = last[4] - dayBars[0][1];
+    $("sessChg").textContent = (chg >= 0 ? "+" : "") + chg.toFixed(2) + " sess";
+    $("sessChg").className = "chg " + (chg >= 0 ? "up" : "dn");
+  }
+  buildDaySel();
+  buildTiles();
+  buildEquity();
+  buildBlotter();
+  buildWindows();
+  drawChart();
+}
+
+function buildDaySel() {
+  const ds = daysOf(state.contract);
+  $("daySel").innerHTML = ds.map(d => `<option ${d === state.day ? "selected" : ""}>${d}</option>`).join("");
+}
+$("daySel").onchange = e => { state.day = e.target.value; state.selTrade = null; drawChart(); };
+$("prevDay").onclick = () => stepDay(-1);
+$("nextDay").onclick = () => stepDay(1);
+function stepDay(dir) {
+  const ds = daysOf(state.contract);
+  const i = ds.indexOf(state.day) + dir;
+  if (i >= 0 && i < ds.length) { state.day = ds[i]; state.selTrade = null; buildDaySel(); drawChart(); }
+}
+
+/* ===== stats ===== */
+function buildTiles() {
+  const o = PAYLOAD.results.overall || {};
+  const t = [
+    ["Net P&L", fm(o.total_dollars || 0), (o.total_pts || 0) + " pts"],
+    ["Trades", o.n || 0, `${o.wins || 0}W / ${(o.n || 0) - (o.wins || 0)}L`],
+    ["Win rate", (o.win_rate || 0) + "%", `${o.targets || 0} tgt · ${o.stops || 0} stop · ${o.time_exits || 0} time`],
+    ["Profit factor", o.profit_factor == null ? (o.n ? "∞" : "—") : o.profit_factor, "gross win/loss"],
+    ["Max drawdown", "$" + (o.max_drawdown_dollars || 0).toLocaleString(), "peak to trough"],
+    ["Avg / trade", fm(o.avg_dollars || 0), "after costs"],
+  ];
+  $("tiles").innerHTML = t.map(x =>
+    `<div class="tile"><div class="k">${x[0]}</div><div class="v">${x[1]}</div><div class="d">${x[2]}</div></div>`).join("");
+}
+
+function buildEquity() {
+  const tr = PAYLOAD.results.trades || [];
+  let c = 0; const pts = [0].concat(tr.map(t => c += t.dollars));
+  const W = 300, H = 120, m = 10;
+  let lo = Math.min(...pts), hi = Math.max(...pts);
+  const span = Math.max(hi - lo, 1); lo -= span * .1; hi += span * .1;
+  const x = i => m + (W - 2 * m) * i / Math.max(pts.length - 1, 1);
+  const y = v => m + (H - 2 * m) * (1 - (v - lo) / (hi - lo));
+  let svg = "";
+  if (lo < 0 && hi > 0)
+    svg += `<line x1="${m}" x2="${W - m}" y1="${y(0)}" y2="${y(0)}" stroke="${css('--baseline')}" stroke-width="1"/>`;
+  svg += `<polyline points="${pts.map((v, i) => x(i) + "," + y(v)).join(" ")}"
+     fill="none" stroke="${css('--pos')}" stroke-width="2" stroke-linejoin="round"
+     vector-effect="non-scaling-stroke"/>`;
+  svg += `<circle cx="${x(pts.length - 1)}" cy="${y(pts[pts.length - 1])}" r="3.5" fill="${css('--pos')}"/>`;
+  $("eqsvg").innerHTML = svg;
+}
+
+/* ===== blotter ===== */
+function buildBlotter() {
+  const tr = PAYLOAD.results.trades || [];
+  $("blotCount").textContent = tr.length + " trades";
+  $("blotter").innerHTML =
+    `<thead><tr><th>#</th><th>Date</th><th>Window</th><th>Side</th>
+     <th class="r">Entry</th><th class="r">Stop</th><th class="r">Target</th>
+     <th class="r">Exit</th><th>Reason</th><th class="r">Pts</th><th class="r">P&L</th></tr></thead><tbody>` +
+    tr.map((t, i) => `<tr data-i="${i}">
+      <td>${i + 1}</td><td>${t.day}</td><td>${t.window}</td>
+      <td class="${t.bias === 'bull' ? 'up' : 'dn'}">${t.bias === 'bull' ? 'LONG' : 'SHORT'}</td>
+      <td class="r">${t.entry.toLocaleString()}</td><td class="r">${t.stop.toLocaleString()}</td>
+      <td class="r">${t.target.toLocaleString()}</td><td class="r">${t.exit.toLocaleString()}</td>
+      <td>${t.outcome}</td><td class="r ${t.pts >= 0 ? 'up' : 'dn'}">${t.pts}</td>
+      <td class="r ${t.dollars >= 0 ? 'up' : 'dn'}">${fm(t.dollars)}</td></tr>`).reverse().join("") +
+    "</tbody>";
+  $("blotterWrap").querySelectorAll("tr[data-i]").forEach(row => {
+    row.onclick = () => {
+      const t = tr[+row.dataset.i];
+      state.selTrade = +row.dataset.i;
+      if (t.contract && PAYLOAD.bars[t.contract]) state.contract = t.contract;
+      state.day = t.day;
+      buildDaySel(); drawChart(); markSel();
+    };
+  });
+  markSel();
+}
+function markSel() {
+  $("blotterWrap").querySelectorAll("tr[data-i]").forEach(r =>
+    r.classList.toggle("sel", +r.dataset.i === state.selTrade));
+}
+
+function buildWindows() {
+  const bw = PAYLOAD.results.by_window || [];
+  $("winTable").innerHTML =
+    `<thead><tr><th>Window</th><th class="r">Trades</th><th class="r">Win %</th>
+     <th class="r">Net $</th><th class="r">PF</th></tr></thead><tbody>` +
+    bw.map(w => w.n ?
+      `<tr><td>${w.label}</td><td class="r">${w.n}</td><td class="r">${w.win_rate}%</td>
+       <td class="r ${w.total_dollars >= 0 ? 'up' : 'dn'}">${fm(w.total_dollars)}</td>
+       <td class="r">${w.profit_factor == null ? "∞" : w.profit_factor}</td></tr>` :
+      `<tr><td>${w.label}</td><td class="r">0</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>`
+    ).join("") + "</tbody>";
+}
+
+/* ===== candlestick chart ===== */
+const cnv = $("chart"), ctx = cnv.getContext("2d");
+let view = null; // {dayBars, x0, bw, lo, hi, plotW, plotH, padL, padT}
+
+function drawChart() {
+  const wrap = $("chartWrap");
+  const dpr = window.devicePixelRatio || 1;
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  cnv.width = W * dpr; cnv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const db = bars().filter(b => b[6] === state.day);
+  if (!db.length) return;
+  const padL = 8, padR = 62, padT = 10, padB = 24;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const trades = (PAYLOAD.results.trades || [])
+    .filter(t => t.day === state.day && (!t.contract || t.contract === state.contract));
+  let lo = Math.min(...db.map(b => b[3])), hi = Math.max(...db.map(b => b[2]));
+  trades.forEach(t => { lo = Math.min(lo, t.stop, t.target); hi = Math.max(hi, t.stop, t.target); });
+  const span = Math.max(hi - lo, 1); lo -= span * .05; hi += span * .05;
+
+  const n = db.length;
+  const bw = plotW / n;
+  const X = i => padL + bw * (i + .5);
+  const Y = p => padT + plotH * (1 - (p - lo) / (hi - lo + 0));
+  view = { db, bw, lo, hi, plotW, plotH, padL, padT, X, Y, trades };
+
+  // window shading
+  ctx.fillStyle = "rgba(57,135,229,0.10)";
+  WINDOWS.forEach(([a, b]) => {
+    let i0 = null, i1 = null;
+    db.forEach((bar, i) => {
+      if (bar[7] >= a && bar[7] < b) { if (i0 === null) i0 = i; i1 = i; }
+    });
+    if (i0 !== null) ctx.fillRect(X(i0) - bw / 2, padT, (i1 - i0 + 1) * bw, plotH);
+  });
+
+  // price gridlines
+  const gstep = niceStep(span / 5);
+  ctx.strokeStyle = css("--grid"); ctx.fillStyle = css("--ink-muted");
+  ctx.font = "10px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.lineWidth = 1;
+  for (let g = Math.ceil(lo / gstep) * gstep; g <= hi; g += gstep) {
+    ctx.beginPath(); ctx.moveTo(padL, Y(g)); ctx.lineTo(padL + plotW, Y(g)); ctx.stroke();
+    ctx.fillText(g.toLocaleString(), padL + plotW + 6, Y(g));
+  }
+  // time labels every 2h
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  db.forEach((bar, i) => {
+    if (bar[7] % 120 === 0) {
+      ctx.fillText(String(Math.floor(bar[7] / 60)).padStart(2, "0") + ":00",
+        X(i), padT + plotH + 6);
+      ctx.strokeStyle = css("--grid");
+      ctx.beginPath(); ctx.moveTo(X(i), padT); ctx.lineTo(X(i), padT + plotH); ctx.stroke();
+    }
+  });
+
+  // candles
+  const up = css("--pos"), dn = css("--neg");
+  const cw = Math.max(Math.min(bw * .65, 9), 1.5);
+  db.forEach((bar, i) => {
+    const [ts, o, h, l, c] = bar;
+    const col = c >= o ? up : dn;
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X(i), Y(h)); ctx.lineTo(X(i), Y(l)); ctx.stroke();
+    const yO = Y(o), yC = Y(c);
+    ctx.fillRect(X(i) - cw / 2, Math.min(yO, yC), cw, Math.max(Math.abs(yC - yO), 1));
+  });
+
+  // trades overlay
+  trades.forEach(t => {
+    const iE = idxAt(db, t.entry_time), iX = idxAt(db, t.exit_time);
+    if (iE === null) return;
+    const x1 = X(iE), x2 = iX !== null ? X(iX) : padL + plotW;
+    // stop & target dashed lines across trade duration
+    ctx.setLineDash([4, 4]); ctx.lineWidth = 1.2;
+    ctx.strokeStyle = dn;
+    ctx.beginPath(); ctx.moveTo(x1, Y(t.stop)); ctx.lineTo(x2, Y(t.stop)); ctx.stroke();
+    ctx.strokeStyle = up;
+    ctx.beginPath(); ctx.moveTo(x1, Y(t.target)); ctx.lineTo(x2, Y(t.target)); ctx.stroke();
+    ctx.setLineDash([]);
+    // entry line
+    ctx.strokeStyle = css("--ink-2"); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x1, Y(t.entry)); ctx.lineTo(x2, Y(t.entry)); ctx.stroke();
+    // entry marker
+    ctx.fillStyle = t.bias === "bull" ? up : dn;
+    tri(x1, Y(t.entry), t.bias === "bull");
+    // exit marker
+    if (iX !== null) {
+      ctx.strokeStyle = css("--ink-1"); ctx.lineWidth = 1.6;
+      xmark(x2, Y(t.exit));
+      ctx.fillStyle = t.dollars >= 0 ? up : dn;
+      ctx.font = "600 11px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      ctx.fillText(fm(t.dollars), Math.min(x2 + 6, padL + plotW - 40), Y(t.exit) - 4);
+    }
+  });
+  ctx.textAlign = "left";
+}
+function tri(x, y, isUp) {
+  ctx.beginPath();
+  if (isUp) { ctx.moveTo(x, y - 9); ctx.lineTo(x - 5, y - 1); ctx.lineTo(x + 5, y - 1); }
+  else { ctx.moveTo(x, y + 9); ctx.lineTo(x - 5, y + 1); ctx.lineTo(x + 5, y + 1); }
+  ctx.closePath(); ctx.fill();
+}
+function xmark(x, y) {
+  ctx.beginPath();
+  ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4);
+  ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4); ctx.stroke();
+}
+function idxAt(db, tstr) {
+  // tstr "YYYY-MM-DD HH:MM" NY; bar[6]=day, bar[8]="HH:MM"
+  if (!tstr) return null;
+  const [d, hm] = tstr.split(" ");
+  for (let i = 0; i < db.length; i++)
+    if (db[i][6] === d && db[i][8] === hm) return i;
+  return null;
+}
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (raw <= m * p) return m * p;
+  return 10 * p;
+}
+
+/* crosshair tooltip */
+$("chartWrap").addEventListener("mousemove", e => {
+  if (!view) return;
+  const rect = cnv.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const i = Math.floor((mx - view.padL) / view.bw);
+  const tt = $("tooltip");
+  if (i < 0 || i >= view.db.length) { tt.style.opacity = 0; drawChart(); return; }
+  const b = view.db[i];
+  drawChart();
+  ctx.strokeStyle = css("--ink-muted"); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(view.X(i), view.padT);
+  ctx.lineTo(view.X(i), view.padT + view.plotH); ctx.stroke(); ctx.setLineDash([]);
+  tt.innerHTML = `<b>${b[8]}</b> NY<br>O ${b[1]} · H ${b[2]}<br>L ${b[3]} · C ${b[4]}<br>Vol ${b[5].toLocaleString()}`;
+  tt.style.opacity = 1;
+  const wrapR = $("chartWrap").getBoundingClientRect();
+  tt.style.left = Math.min(e.clientX - wrapR.left + 14, wrapR.width - 130) + "px";
+  tt.style.top = Math.min(e.clientY - wrapR.top + 14, wrapR.height - 80) + "px";
+});
+$("chartWrap").addEventListener("mouseleave", () => { $("tooltip").style.opacity = 0; drawChart(); });
+window.addEventListener("resize", drawChart);
+
+/* ===== refresh from GitHub ===== */
+$("refreshBtn").onclick = () => { $("dlgStatus").textContent = ""; $("tokenDlg").showModal(); };
+$("dlgCancel").onclick = () => $("tokenDlg").close();
+$("dlgGo").onclick = async () => {
+  const tok = $("tokenInput").value.trim();
+  const st = $("dlgStatus");
+  st.textContent = "Fetching…";
+  const H = { "Accept": "application/vnd.github.raw" };
+  if (tok) H["Authorization"] = "Bearer " + tok;
+  const base = "https://api.github.com/repos/cjosh4toyotas-stack/silver-bullet-backtest";
+  try {
+    const results = await (await gh(base + "/contents/results.json", H)).json();
+    const HJ = { "Accept": "application/vnd.github+json" };
+    if (tok) HJ["Authorization"] = "Bearer " + tok;
+    const listing = await (await gh(base + "/contents/data", HJ)).json();
+    const newBars = {};
+    for (const f of listing.filter(f => f.name.endsWith(".csv"))) {
+      const txt = await (await gh(base + "/contents/data/" + f.name, H)).text();
+      newBars[f.name.replace(".csv", "")] = parseCsv(txt);
+    }
+    PAYLOAD = { results, bars: newBars };
+    $("tokenDlg").close();
+    boot(true);
+  } catch (err) { st.textContent = "Failed: " + err.message; }
+};
+async function gh(url, headers) {
+  const r = await fetch(url, { headers });
+  if (!r.ok) throw new Error(r.status + " " + r.statusText);
+  return r;
+}
+function parseCsv(txt) {
+  const out = [];
+  const fmtDay = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit" });
+  const fmtHM = new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York",
+    hour: "2-digit", minute: "2-digit", hour12: false });
+  for (const line of txt.split("\n").slice(1)) {
+    if (!line.trim()) continue;
+    const [ts, o, h, l, c, v] = line.split(",");
+    const d = new Date(ts);
+    const day = fmtDay.format(d);
+    const hm = fmtHM.format(d);
+    const [hh, mm] = hm.split(":").map(Number);
+    out.push([d.getTime() / 1000, +o, +h, +l, +c, +v, day, hh * 60 + mm, hm]);
+  }
+  return out;
+}
+
+boot(false);
+</script>
+</body>
+</html>
