@@ -318,6 +318,35 @@ def run_system_lab(market_bars):
     return rows
 
 
+def run_retro(market_bars, base_pooled_trades):
+    """OLD (base spec, all markets/windows) vs NEW v2 (ES only, London+AM,
+    breakeven after +1R) — the parameter-analysis fix, tracked retroactively.
+    v2 was selected on historical data (selection bias); its live OOS record
+    accumulating here is the real test."""
+    def pack(trades):
+        trades = sorted(trades, key=lambda t: (t["day"], t["entry_time"]))
+        cum, curve = 0.0, []
+        for t in trades:
+            cum += t["r_net"]
+            curve.append({"day": t["day"], "cum_r": round(cum, 2)})
+        s = lab_stats(trades)
+        split = int(len(trades) * 0.7)
+        s["is_avg_r"] = lab_stats(trades[:split]).get("avg_r")
+        s["oos_avg_r"] = lab_stats(trades[split:]).get("avg_r")
+        s["curve"] = curve
+        return s
+    retro = {"old": {"label": "OLD — base spec · all markets · all windows",
+                     **pack(base_pooled_trades)}}
+    if "ES" in market_bars:
+        new = run_backtest(
+            market_bars["ES"], "ES", market="ES",
+            variant={"target_r": 2.0, "stop_mode": "sweep", "breakeven": True},
+            windows=[("London 3-4am", 180), ("AM 10-11am", 600)])
+        retro["new"] = {"label": "NEW v2 — ES only · London+AM · 2R · "
+                                 "breakeven after +1R", **pack(new)}
+    return retro
+
+
 def run_oil_lab(cl_bars):
     """Window scan for CL: oil-native windows x {1R, 2R}, IS/OOS split."""
     rows = []
@@ -509,6 +538,28 @@ def make_readme(res, coverage, path):
         else:
             a(f"| {mrow['market']} | 0 | — | — | — | — | — |")
     a("")
+    if res.get("retro"):
+        a("## Old vs New — the retro comparison")
+        a("")
+        a("The parameter analysis (Aug 2026) found the base spec's consistent "
+          "failures — the PM window, gap-edge stops, and NQ itself — and "
+          "produced a fixed spec: **v2 = ES only · London+AM windows · 2R "
+          "target · breakeven stop after +1R**. Both are re-run over all "
+          "accumulated history on every update. v2 was *selected* on this "
+          "same history (selection bias), so its edge is overstated here — "
+          "the growing out-of-sample record is the real verdict.")
+        a("")
+        a("| Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |")
+        a("|---|---|---|---|---|---|---|")
+        for key in ("old", "new"):
+            rr = res["retro"].get(key)
+            if not rr or not rr.get("n"):
+                continue
+            pf = rr["pf"] if rr.get("pf") is not None else "∞"
+            a(f"| {rr['label']} | {rr['n']} | {rr['win_rate']}% | "
+              f"{rr['avg_r']} | {rr['total_r']} | {pf} | "
+              f"{rr.get('is_avg_r', '—')} → {rr.get('oos_avg_r', '—')} |")
+        a("")
     a("## System Lab — which variant is most profitable?")
     a("")
     a("Every mechanical variant of the strategy, run on all markets, ranked by "
@@ -776,6 +827,9 @@ def main():
         "lab": run_system_lab(market_bars),
         "oil_lab": (run_oil_lab(market_bars["CL"])
                     if "CL" in market_bars else []),
+        "retro": run_retro(
+            market_bars,
+            trades + [t for mtr in market_trades.values() for t in mtr]),
     }
 
     with open(os.path.join(ROOT, "results.json"), "w") as f:
