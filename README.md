@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-08-18 03:45 UTC · **Rules:** v1.0 (2026-08-17) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 13605 bars, 2026-06-08 → 2026-08-17
+**Last updated:** 2026-08-18 04:57 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 13614 bars, 2026-06-08 → 2026-08-18; CL: 13361 bars, 2026-06-09 → 2026-08-18; ES: 13317 bars, 2026-06-09 → 2026-08-18
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -25,6 +25,16 @@ T = target hit, S = stopped, X = 2-hour time exit
 | London 3-4am | 12 | 25.0% | −$2,135 | 0.63 |
 | AM 10-11am | 1 | 0.0% | −$515 | 0.0 |
 | PM 2-3pm | 5 | 40.0% | −$1,215 | 0.48 |
+
+## Cross-market robustness
+
+Same mechanical rules run on other markets (continuous front-month, Yahoo data). Scored in **R-multiples** — profit measured in units of initial risk — so different point values compare fairly. NQ row uses the NQ trades above.
+
+| Market | Trades | Win % | Avg R | Total R | Profit factor (R) | Net $ (1 contract) |
+|---|---|---|---|---|---|---|
+| NQ | 18 | 27.8% | -0.31 | -5.62 | 0.57 | −$3,865 |
+| CL | 5 | 20.0% | -0.4 | -2.0 | 0.5 | −$240 |
+| ES | 27 | 40.7% | 0.14 | 3.87 | 1.26 | +$942 |
 
 ## Recent trades
 
