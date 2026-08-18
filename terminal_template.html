@@ -143,9 +143,11 @@
       <div id="blotterWrap"><table id="blotter"></table></div>
       <div id="labWrap" style="display:none;overflow-y:auto;flex:1">
         <table id="labTable"></table>
-        <div class="note">Ranked by total cost-adjusted R across all markets. The top row
-        of any variant grid always looks good by luck — trust only ✅ robust rows
-        (positive overall + positive out-of-sample + ≥2 markets), and only if they
+        <div class="subhead" id="oilHead" style="display:none">Oil Lab — CL-native windows (sweep→FVG, oil's own clock)</div>
+        <table id="oilTable"></table>
+        <div class="note">Ranked by total cost-adjusted R. The top row of any variant
+        grid always looks good by luck — trust only ✅ robust rows (positive overall,
+        positive out-of-sample, and for the System Lab ≥2 markets), and only if they
         stay robust as data accumulates.</div>
       </div>
     </div>
@@ -350,6 +352,24 @@ function buildLab() {
        <td class="r">${cell(v.per_market.CL)}</td>
        <td class="r">${v.is_avg_r ?? "—"} → ${v.oos_avg_r ?? "—"}</td>
        <td>${v.robust ? "✅" : "—"}</td></tr>`).join("") + "</tbody>";
+  const oil = PAYLOAD.results.oil_lab || [];
+  if (oil.length) {
+    $("oilHead").style.display = "";
+    $("oilTable").innerHTML =
+      `<thead><tr><th>#</th><th>CL window · target</th><th class="r">Trades</th>
+       <th class="r">Win %</th><th class="r">Avg R</th><th class="r">Total R</th>
+       <th class="r">PF</th><th class="r">IS → OOS</th><th>Robust</th></tr></thead><tbody>` +
+      oil.map((v, i) => !v.n ?
+        `<tr><td>${i + 1}</td><td>${v.label}</td><td class="r">0</td>
+         <td class="r" colspan="6">no trades</td></tr>` :
+        `<tr><td>${i + 1}</td><td>${v.label}</td><td class="r">${v.n}</td>
+         <td class="r">${v.win_rate}%</td>
+         <td class="r ${v.avg_r >= 0 ? 'up' : 'dn'}">${v.avg_r}</td>
+         <td class="r ${v.total_r >= 0 ? 'up' : 'dn'}">${v.total_r}</td>
+         <td class="r">${v.pf == null ? "∞" : v.pf}</td>
+         <td class="r">${v.is_avg_r ?? "—"} → ${v.oos_avg_r ?? "—"}</td>
+         <td>${v.robust ? "✅" : "—"}</td></tr>`).join("") + "</tbody>";
+  }
 }
 $("tabBlotter").onclick = () => setTab(true);
 $("tabLab").onclick = () => setTab(false);
