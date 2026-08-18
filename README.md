@@ -1,8 +1,8 @@
 # Silver Bullet Strategy — Accumulating NQ Backtest
 
-Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically twice a week from Interactive Brokers data. Every run re-tests the entire accumulated history, so the trade sample below grows over time.
+Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-08-17 12:57 UTC · **Rules:** v1.0 (2026-08-17) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16
+**Last updated:** 2026-08-18 03:19 UTC · **Rules:** v1.0 (2026-08-17) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 13598 bars, 2026-06-08 → 2026-08-17
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -10,7 +10,7 @@ Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 
 
 | Net P&L | Trades | Win rate | Profit factor | Max drawdown | Avg/trade |
 |---|---|---|---|---|---|
-| **+$2,245** | 5 (2T/2S/1X) | 60.0% | 3.21 | $855 | +$449 |
+| **−$3,865** | 18 (3T/13S/2X) | 27.8% | 0.55 | $6,755 | −$215 |
 
 T = target hit, S = stopped, X = 2-hour time exit
 
@@ -22,19 +22,29 @@ T = target hit, S = stopped, X = 2-hour time exit
 
 | Window | Trades | Win rate | Net $ | Profit factor |
 |---|---|---|---|---|
-| London 3-4am | 4 | 50.0% | +$1,685 | 2.66 |
-| AM 10-11am | 0 | — | — | — |
-| PM 2-3pm | 1 | 100.0% | +$560 | ∞ |
+| London 3-4am | 12 | 25.0% | −$2,135 | 0.63 |
+| AM 10-11am | 1 | 0.0% | −$515 | 0.0 |
+| PM 2-3pm | 5 | 40.0% | −$1,215 | 0.48 |
 
 ## Recent trades
 
 | Date | Window | Dir | Entry | Risk (pts) | Exit | P&L |
 |---|---|---|---|---|---|---|
+| 2026-08-17 | London 3-4am | bear | 30313.0 | 14.25 | stop | −$295 |
 | 2026-08-13 | London 3-4am | bull | 29866.0 | 8.0 | target | +$310 |
 | 2026-08-11 | London 3-4am | bull | 29770.0 | 42.25 | stop | −$855 |
 | 2026-08-06 | PM 2-3pm | bear | 29524.5 | 51.25 | time | +$560 |
 | 2026-08-04 | London 3-4am | bear | 29093.0 | 7.5 | stop | −$160 |
 | 2026-07-31 | London 3-4am | bull | 28509.75 | 60.0 | target | +$2,390 |
+| 2026-07-22 | London 3-4am | bull | 29090.75 | 40.0 | stop | −$810 |
+| 2026-07-21 | PM 2-3pm | bear | 29329.25 | 35.75 | time | +$575 |
+| 2026-07-10 | AM 10-11am | bear | 29911.75 | 25.25 | stop | −$515 |
+| 2026-07-06 | London 3-4am | bear | 29839.75 | 21.75 | stop | −$445 |
+| 2026-06-29 | PM 2-3pm | bear | 30004.5 | 34.0 | stop | −$690 |
+| 2026-06-29 | London 3-4am | bear | 29633.75 | 51.25 | stop | −$1,035 |
+| 2026-06-24 | London 3-4am | bull | 29812.0 | 46.75 | stop | −$945 |
+| 2026-06-18 | PM 2-3pm | bear | 30684.25 | 52.75 | stop | −$1,065 |
+| 2026-06-18 | London 3-4am | bear | 30406.25 | 32.5 | stop | −$660 |
 
 Full log: [trades.csv](trades.csv) · raw stats: [results.json](results.json) · interactive report: [report.html](report.html) (download to view)
 
