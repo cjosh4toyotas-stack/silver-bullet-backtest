@@ -41,7 +41,22 @@ PRE_WINDOW_BARS = 6
 MAX_HOLD = 24
 MAX_STOP_PTS = 60.0
 MIN_GAP_PTS = 0.5
-RULES_VERSION = "1.0 (2026-08-17)"
+RULES_VERSION = "1.1 (2026-08-18)"
+
+# Cross-market configs. NQ keeps its original absolute v1.0 thresholds for
+# continuity; other markets use the same thresholds expressed RELATIVE to
+# price (NQ's 0.5pt gap ≈ 0.0017% and 60pt stop cap ≈ 0.2% at ~30,000).
+MARKETS = {
+    "NQ": {"tick": 0.25, "pv": 20.0,
+           "min_gap": lambda p: 0.5, "max_stop": lambda p: 60.0},
+    "ES": {"tick": 0.25, "pv": 50.0,
+           "min_gap": lambda p: max(0.5, p * 1.7e-5),
+           "max_stop": lambda p: p * 0.002},
+    "CL": {"tick": 0.01, "pv": 1000.0,
+           "min_gap": lambda p: max(0.02, p * 1.7e-5),
+           "max_stop": lambda p: p * 0.002},
+}
+MARKETS_INBOX = "/tmp/sb_markets"   # fetch_yahoo.py drops extra-market CSVs here
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT, "data")
@@ -100,17 +115,20 @@ def find_sweep(bars, i0, i1):
     return None
 
 
-def find_fvg(bars, start, end, bias):
+def find_fvg(bars, start, end, bias, min_gap_fn):
     for k in range(max(start, 2), end):
         c1, c2, c3 = bars[k - 2], bars[k - 1], bars[k]
-        if bias == "bull" and c3["l"] - c1["h"] >= MIN_GAP_PTS and c2["c"] > c2["o"]:
+        gap_min = min_gap_fn(c2["c"])
+        if bias == "bull" and c3["l"] - c1["h"] >= gap_min and c2["c"] > c2["o"]:
             return k, c1["h"], c3["l"]
-        if bias == "bear" and c1["l"] - c3["h"] >= MIN_GAP_PTS and c2["c"] < c2["o"]:
+        if bias == "bear" and c1["l"] - c3["h"] >= gap_min and c2["c"] < c2["o"]:
             return k, c1["l"], c3["h"]
     return None
 
 
-def run_backtest(bars, contract):
+def run_backtest(bars, contract, market="NQ"):
+    cfg = MARKETS.get(market, MARKETS["NQ"])
+    tick, pv = cfg["tick"], cfg["pv"]
     trades = []
     n = len(bars)
     days = sorted({b["ny"].date() for b in bars})
@@ -130,18 +148,19 @@ def run_backtest(bars, contract):
             if not sw:
                 continue
             si, bias, sweep_ext = sw
-            fvg = find_fvg(bars, max(si + 1, win_idx[0]), i1, bias)
+            fvg = find_fvg(bars, max(si + 1, win_idx[0]), i1, bias,
+                           cfg["min_gap"])
             if not fvg:
                 continue
             fi, gfar, gnear = fvg
             entry = gnear
-            stop = sweep_ext - TICK if bias == "bull" else sweep_ext + TICK
+            stop = sweep_ext - tick if bias == "bull" else sweep_ext + tick
             if bias == "bull" and stop >= entry:
                 continue
             if bias == "bear" and stop <= entry:
                 continue
             risk = abs(entry - stop)
-            if risk <= 0 or risk > MAX_STOP_PTS:
+            if risk <= 0 or risk > cfg["max_stop"](entry):
                 continue
             tgt = entry + 2 * risk if bias == "bull" else entry - 2 * risk
             fill_i = None
@@ -170,6 +189,7 @@ def run_backtest(bars, contract):
                 outcome, exit_px = "time", bars[exit_i]["c"]
             pts = (exit_px - entry) if bias == "bull" else (entry - exit_px)
             trades.append({
+                "market": market,
                 "contract": contract,
                 "day": str(day), "window": wname, "bias": bias,
                 "sweep_time": bars[si]["ny"].strftime("%Y-%m-%d %H:%M"),
@@ -178,9 +198,32 @@ def run_backtest(bars, contract):
                 "entry": entry, "stop": stop, "target": round(tgt, 2),
                 "risk_pts": round(risk, 2), "outcome": outcome,
                 "exit": round(exit_px, 2), "pts": round(pts, 2),
-                "dollars": round(pts * POINT_VALUE - COST_RT_DOLLARS, 2),
+                "r": round(pts / risk, 2),
+                "dollars": round(pts * pv - COST_RT_DOLLARS, 2),
             })
     return trades
+
+
+def summarize_market(trades, market):
+    """Instrument-agnostic stats in R-multiples (profit per unit of risk)."""
+    row = {"market": market, "n": len(trades)}
+    if not trades:
+        return row
+    wins = [t for t in trades if t["pts"] > 0]
+    pos_r = sum(t["r"] for t in trades if t["r"] > 0)
+    neg_r = -sum(t["r"] for t in trades if t["r"] < 0)
+    row.update({
+        "wins": len(wins),
+        "win_rate": round(100 * len(wins) / len(trades), 1),
+        "total_r": round(sum(t["r"] for t in trades), 2),
+        "avg_r": round(sum(t["r"] for t in trades) / len(trades), 2),
+        "profit_factor_r": (round(pos_r / neg_r, 2) if neg_r > 0 else None),
+        "total_dollars": round(sum(t["dollars"] for t in trades), 2),
+        "targets": sum(1 for t in trades if t["outcome"] == "target"),
+        "stops": sum(1 for t in trades if t["outcome"] == "stop"),
+        "time_exits": sum(1 for t in trades if t["outcome"] == "time"),
+    })
+    return row
 
 
 def summarize(trades, label):
@@ -311,6 +354,24 @@ def make_readme(res, coverage, path):
               f"{fmt_money(w['total_dollars'])} | {pf} |")
         else:
             a(f"| {w['label']} | 0 | — | — | — |")
+    a("")
+    a("## Cross-market robustness")
+    a("")
+    a("Same mechanical rules run on other markets (continuous front-month, "
+      "Yahoo data). Scored in **R-multiples** — profit measured in units of "
+      "initial risk — so different point values compare fairly. NQ row uses "
+      "the NQ trades above.")
+    a("")
+    a("| Market | Trades | Win % | Avg R | Total R | Profit factor (R) | Net $ (1 contract) |")
+    a("|---|---|---|---|---|---|---|")
+    for mrow in res.get("markets", []):
+        if mrow.get("n"):
+            pf = mrow["profit_factor_r"] if mrow.get("profit_factor_r") is not None else "∞"
+            a(f"| {mrow['market']} | {mrow['n']} | {mrow['win_rate']}% | "
+              f"{mrow['avg_r']} | {mrow['total_r']} | {pf} | "
+              f"{fmt_money(mrow['total_dollars'])} |")
+        else:
+            a(f"| {mrow['market']} | 0 | — | — | — | — | — |")
     a("")
     a("## Recent trades")
     a("")
@@ -447,6 +508,21 @@ def main():
         print(f"[update] {args.contract}: +{added} new bars "
               f"({len(existing)} -> {len(merged)})")
 
+    # ingest comparison-market bars dropped off by fetch_yahoo.py
+    markets_dir = os.path.join(DATA_DIR, "markets")
+    if os.path.isdir(MARKETS_INBOX):
+        os.makedirs(markets_dir, exist_ok=True)
+        for p in sorted(glob.glob(os.path.join(MARKETS_INBOX, "*.csv"))):
+            m = os.path.splitext(os.path.basename(p))[0]
+            if m not in MARKETS:
+                continue
+            target = os.path.join(markets_dir, m + ".csv")
+            existing = read_bars_csv(target) if os.path.exists(target) else []
+            merged, add_m = merge_bars(existing, read_bars_csv(p))
+            write_bars_csv(target, merged)
+            print(f"[update] market {m}: +{add_m} new bars "
+                  f"({len(existing)} -> {len(merged)})")
+
     # backtest every contract series
     all_trades, coverage, daily_vol = [], [], {}
     for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.csv"))):
@@ -474,6 +550,24 @@ def main():
     trades = sorted((v[1] for v in best.values()),
                     key=lambda t: (t["day"], t["entry_time"]))
 
+    # cross-market robustness backtests (one continuous series per market)
+    market_rows = [summarize_market(trades, "NQ")]
+    market_trades = {}
+    for p in (sorted(glob.glob(os.path.join(markets_dir, "*.csv")))
+              if os.path.isdir(markets_dir) else []):
+        m = os.path.splitext(os.path.basename(p))[0]
+        mbars = read_bars_csv(p)
+        if not mbars:
+            continue
+        coverage.append({
+            "contract": m, "bars": len(mbars),
+            "first_ny": mbars[0]["ny"].strftime("%Y-%m-%d %H:%M"),
+            "last_ny": mbars[-1]["ny"].strftime("%Y-%m-%d %H:%M"),
+        })
+        mtr = run_backtest(mbars, m + "-continuous", market=m)
+        market_trades[m] = mtr
+        market_rows.append(summarize_market(mtr, m))
+
     now_utc = datetime.now(ZoneInfo("UTC")).strftime("%Y-%m-%d %H:%M")
     res = {
         "generated_utc": now_utc,
@@ -483,6 +577,8 @@ def main():
         "by_window": [summarize([t for t in trades if t["window"] == w], w)
                       for w, _ in WINDOWS],
         "trades": trades,
+        "markets": market_rows,
+        "market_trades": market_trades,
     }
 
     with open(os.path.join(ROOT, "results.json"), "w") as f:
