@@ -500,6 +500,25 @@ def main():
                           .replace("__RULES__", RULES_VERSION)
     with open(os.path.join(ROOT, "report.html"), "w") as f:
         f.write(html)
+
+    # rebuild the trading-terminal site page (index.html) if the template exists
+    tpl_path = os.path.join(ROOT, "terminal_template.html")
+    if os.path.exists(tpl_path):
+        bars_payload = {}
+        for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.csv"))):
+            contract = os.path.splitext(os.path.basename(path))[0]
+            bars_payload[contract] = [
+                [int(b["utc"].timestamp()), b["o"], b["h"], b["l"], b["c"],
+                 b["v"], b["ny"].strftime("%Y-%m-%d"),
+                 b["ny"].hour * 60 + b["ny"].minute, b["ny"].strftime("%H:%M")]
+                for b in read_bars_csv(path)]
+        payload = json.dumps({"results": res, "bars": bars_payload},
+                             separators=(",", ":"))
+        with open(tpl_path) as f:
+            tpl = f.read()
+        with open(os.path.join(ROOT, "index.html"), "w") as f:
+            f.write(tpl.replace("__PAYLOAD__", payload))
+        print("[update] terminal site page (index.html) rebuilt")
     o = res["overall"]
     print(f"[update] {o.get('n', 0)} trades, net "
           f"${o.get('total_dollars', 0):,} | +{added} bars this run")
