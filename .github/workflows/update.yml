@@ -2,7 +2,7 @@ name: Update Silver Bullet backtest
 
 on:
   schedule:
-    - cron: "23 */4 * * *"
+  - cron: "7,37 * * * *"
   workflow_dispatch: {}
 
 permissions:
