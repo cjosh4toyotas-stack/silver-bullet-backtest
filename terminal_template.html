@@ -659,8 +659,47 @@ $("chartWrap").addEventListener("mousemove", e => {
 $("chartWrap").addEventListener("mouseleave", () => { $("tooltip").style.opacity = 0; drawChart(); });
 window.addEventListener("resize", drawChart);
 
-/* ===== refresh from GitHub ===== */
-$("refreshBtn").onclick = () => { $("dlgStatus").textContent = ""; $("tokenDlg").showModal(); };
+/* ===== live auto-refresh (page updates itself while the tab is open) ===== */
+async function reloadData(force) {
+  if (!location.protocol.startsWith("http")) return "offline";
+  try {
+    const bust = "?t=" + Date.now();
+    const res = await fetch("results.json" + bust, { cache: "no-store" });
+    if (!res.ok) return "error";
+    const results = await res.json();
+    if (!force && results.generated_utc === PAYLOAD.results.generated_utc)
+      return "same";
+    const files = PAYLOAD.data_files || {};
+    const nb = {};
+    for (const [k, p] of Object.entries(files)) {
+      const r2 = await fetch(p + bust, { cache: "no-store" });
+      if (r2.ok) nb[k] = parseCsv(await r2.text());
+    }
+    PAYLOAD = { results,
+                bars: Object.keys(nb).length ? nb : PAYLOAD.bars,
+                data_files: files };
+    boot(true);
+    return "updated";
+  } catch (e) { return "error"; }
+}
+setInterval(reloadData, 5 * 60 * 1000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) reloadData();
+});
+
+/* ===== refresh button ===== */
+$("refreshBtn").onclick = async () => {
+  if (location.protocol.startsWith("http")) {
+    $("refreshBtn").textContent = "Refreshing…";
+    const r = await reloadData(true);
+    $("refreshBtn").textContent = r === "error" ? "Refresh failed — retry"
+                                                : "Up to date ✓";
+    setTimeout(() => { $("refreshBtn").textContent = "Refresh from GitHub"; }, 2500);
+  } else {
+    $("dlgStatus").textContent = "";
+    $("tokenDlg").showModal();
+  }
+};
 $("dlgCancel").onclick = () => $("tokenDlg").close();
 $("dlgGo").onclick = async () => {
   const tok = $("tokenInput").value.trim();
