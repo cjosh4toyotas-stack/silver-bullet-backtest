@@ -872,16 +872,19 @@ def main():
     tpl_path = os.path.join(ROOT, "terminal_template.html")
     if os.path.exists(tpl_path):
         bars_payload = {}
+        data_files = {}
         for path in (sorted(glob.glob(os.path.join(DATA_DIR, "*.csv")))
                      + sorted(glob.glob(os.path.join(DATA_DIR, "markets",
                                                      "*.csv")))):
             contract = os.path.splitext(os.path.basename(path))[0]
+            data_files[contract] = os.path.relpath(path, ROOT)
             bars_payload[contract] = [
                 [int(b["utc"].timestamp()), b["o"], b["h"], b["l"], b["c"],
                  b["v"], b["ny"].strftime("%Y-%m-%d"),
                  b["ny"].hour * 60 + b["ny"].minute, b["ny"].strftime("%H:%M")]
                 for b in read_bars_csv(path)]
-        payload = json.dumps({"results": res, "bars": bars_payload},
+        payload = json.dumps({"results": res, "bars": bars_payload,
+                              "data_files": data_files},
                              separators=(",", ":"))
         with open(tpl_path) as f:
             tpl = f.read()
