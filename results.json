@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-08-20 07:02",
+ "generated_utc": "2026-08-20 07:52",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,51 +10,51 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 14193,
+   "bars": 14203,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-08-20 02:50"
+   "last_ny": "2026-08-20 03:40"
   },
   {
    "contract": "CL",
-   "bars": 13962,
+   "bars": 13972,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-08-20 02:50"
+   "last_ny": "2026-08-20 03:40"
   },
   {
    "contract": "ES",
-   "bars": 13918,
+   "bars": 13928,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-08-20 02:50"
+   "last_ny": "2026-08-20 03:40"
   }
  ],
  "overall": {
   "label": "ALL",
-  "n": 21,
-  "wins": 5,
-  "win_rate": 23.8,
-  "total_pts": -238.25,
-  "total_dollars": -4975.0,
-  "avg_dollars": -236.9,
-  "profit_factor": 0.49,
+  "n": 22,
+  "wins": 6,
+  "win_rate": 27.3,
+  "total_pts": -212.75,
+  "total_dollars": -4475.0,
+  "avg_dollars": -203.41,
+  "profit_factor": 0.54,
   "max_drawdown_dollars": 6755.0,
   "stops": 16,
   "targets": 3,
-  "time_exits": 2
+  "time_exits": 3
  },
  "by_window": [
   {
    "label": "London 3-4am",
-   "n": 12,
-   "wins": 3,
-   "win_rate": 25.0,
-   "total_pts": -100.75,
-   "total_dollars": -2135.0,
-   "avg_dollars": -177.92,
-   "profit_factor": 0.63,
+   "n": 13,
+   "wins": 4,
+   "win_rate": 30.8,
+   "total_pts": -75.25,
+   "total_dollars": -1635.0,
+   "avg_dollars": -125.77,
+   "profit_factor": 0.72,
    "max_drawdown_dollars": 4465.0,
    "stops": 9,
    "targets": 3,
-   "time_exits": 0
+   "time_exits": 1
   },
   {
    "label": "AM 10-11am",
@@ -589,21 +589,45 @@
    "r": -1.0,
    "r_net": -1.011,
    "dollars": -930.0
+  },
+  {
+   "market": "NQ",
+   "contract": "NQF-continuous",
+   "day": "2026-08-20",
+   "window": "London 3-4am",
+   "bias": "bear",
+   "sweep_time": "2026-08-20 02:35",
+   "sweep_px": 29677.25,
+   "fvg_time": "2026-08-20 03:15",
+   "gap_far": 29644.75,
+   "gap_near": 29643.25,
+   "entry_time": "2026-08-20 03:20",
+   "exit_time": "2026-08-20 03:40",
+   "entry": 29643.25,
+   "stop": 29677.5,
+   "target": 29574.75,
+   "risk_pts": 34.25,
+   "outcome": "time",
+   "exit": 29617.75,
+   "pts": 25.5,
+   "r": 0.74,
+   "r_net": 0.73,
+   "dollars": 500.0
   }
  ],
  "markets": [
   {
    "market": "NQ",
-   "n": 21,
-   "wins": 5,
-   "win_rate": 23.8,
-   "total_r": -8.62,
-   "avg_r": -0.41,
-   "profit_factor_r": 0.46,
-   "total_dollars": -4975.0,
+   "n": 22,
+   "wins": 6,
+   "win_rate": 27.3,
+   "total_r": -7.88,
+   "avg_r": -0.36,
+   "profit_factor_r": 0.51,
+   "total_dollars": -4475.0,
    "targets": 3,
    "stops": 16,
-   "time_exits": 2
+   "time_exits": 3
   },
   {
    "market": "CL",
@@ -1434,15 +1458,15 @@
   {
    "id": "be1r",
    "label": "2R \u00b7 breakeven stop after +1R",
-   "n": 54,
-   "win_rate": 29.6,
-   "avg_r": -0.07,
-   "total_r": -3.8,
-   "pf": 0.87,
+   "n": 55,
+   "win_rate": 30.9,
+   "avg_r": -0.056,
+   "total_r": -3.07,
+   "pf": 0.9,
    "per_market": {
     "NQ": {
-     "n": 21,
-     "avg_r": -0.341
+     "n": 22,
+     "avg_r": -0.293
     },
     "CL": {
      "n": 5,
@@ -1453,22 +1477,22 @@
      "avg_r": 0.193
     }
    },
-   "is_avg_r": -0.017,
-   "oos_avg_r": -0.178,
+   "is_avg_r": -0.002,
+   "oos_avg_r": -0.168,
    "robust": false
   },
   {
    "id": "t10-sweep",
    "label": "1R target \u00b7 stop@sweep",
-   "n": 54,
-   "win_rate": 48.1,
-   "avg_r": -0.12,
-   "total_r": -6.5,
-   "pf": 0.78,
+   "n": 55,
+   "win_rate": 49.1,
+   "avg_r": -0.1,
+   "total_r": -5.52,
+   "pf": 0.82,
    "per_market": {
     "NQ": {
-     "n": 21,
-     "avg_r": -0.294
+     "n": 22,
+     "avg_r": -0.236
     },
     "CL": {
      "n": 5,
@@ -1479,22 +1503,22 @@
      "avg_r": 0.061
     }
    },
-   "is_avg_r": -0.036,
-   "oos_avg_r": -0.289,
+   "is_avg_r": -0.02,
+   "oos_avg_r": -0.265,
    "robust": false
   },
   {
    "id": "t20-sweep",
    "label": "2R target \u00b7 stop@sweep (base)",
-   "n": 54,
-   "win_rate": 31.5,
-   "avg_r": -0.203,
-   "total_r": -10.99,
-   "pf": 0.71,
+   "n": 55,
+   "win_rate": 32.7,
+   "avg_r": -0.186,
+   "total_r": -10.26,
+   "pf": 0.73,
    "per_market": {
     "NQ": {
-     "n": 21,
-     "avg_r": -0.445
+     "n": 22,
+     "avg_r": -0.392
     },
     "CL": {
      "n": 5,
@@ -1505,22 +1529,22 @@
      "avg_r": 0.05
     }
    },
-   "is_avg_r": -0.161,
-   "oos_avg_r": -0.289,
+   "is_avg_r": -0.142,
+   "oos_avg_r": -0.279,
    "robust": false
   },
   {
    "id": "notime",
    "label": "2R \u00b7 no time exit (hold 6.5h)",
-   "n": 54,
-   "win_rate": 27.8,
-   "avg_r": -0.226,
-   "total_r": -12.22,
-   "pf": 0.7,
+   "n": 55,
+   "win_rate": 29.1,
+   "avg_r": -0.209,
+   "total_r": -11.49,
+   "pf": 0.72,
    "per_market": {
     "NQ": {
-     "n": 21,
-     "avg_r": -0.463
+     "n": 22,
+     "avg_r": -0.409
     },
     "CL": {
      "n": 5,
@@ -1531,22 +1555,22 @@
      "avg_r": 0.019
     }
    },
-   "is_avg_r": -0.119,
-   "oos_avg_r": -0.44,
+   "is_avg_r": -0.144,
+   "oos_avg_r": -0.343,
    "robust": false
   },
   {
    "id": "t30-sweep",
    "label": "3R target \u00b7 stop@sweep",
-   "n": 54,
-   "win_rate": 25.9,
-   "avg_r": -0.235,
-   "total_r": -12.71,
-   "pf": 0.7,
+   "n": 55,
+   "win_rate": 27.3,
+   "avg_r": -0.218,
+   "total_r": -11.98,
+   "pf": 0.71,
    "per_market": {
     "NQ": {
-     "n": 21,
-     "avg_r": -0.556
+     "n": 22,
+     "avg_r": -0.497
     },
     "CL": {
      "n": 5,
@@ -1557,22 +1581,22 @@
      "avg_r": 0.179
     }
    },
-   "is_avg_r": -0.059,
-   "oos_avg_r": -0.589,
+   "is_avg_r": -0.042,
+   "oos_avg_r": -0.578,
    "robust": false
   },
   {
    "id": "t15-sweep",
    "label": "1.5R target \u00b7 stop@sweep",
-   "n": 54,
-   "win_rate": 33.3,
-   "avg_r": -0.296,
-   "total_r": -15.99,
-   "pf": 0.58,
+   "n": 55,
+   "win_rate": 34.5,
+   "avg_r": -0.277,
+   "total_r": -15.26,
+   "pf": 0.6,
    "per_market": {
     "NQ": {
-     "n": 21,
-     "avg_r": -0.517
+     "n": 22,
+     "avg_r": -0.46
     },
     "CL": {
      "n": 5,
@@ -1583,22 +1607,22 @@
      "avg_r": -0.057
     }
    },
-   "is_avg_r": -0.244,
-   "oos_avg_r": -0.4,
+   "is_avg_r": -0.223,
+   "oos_avg_r": -0.39,
    "robust": false
   },
   {
    "id": "t30-gap",
    "label": "3R target \u00b7 stop@gap edge",
-   "n": 112,
-   "win_rate": 24.1,
-   "avg_r": -0.173,
-   "total_r": -19.33,
-   "pf": 0.8,
+   "n": 113,
+   "win_rate": 23.9,
+   "avg_r": -0.182,
+   "total_r": -20.62,
+   "pf": 0.79,
    "per_market": {
     "NQ": {
-     "n": 40,
-     "avg_r": -0.31
+     "n": 41,
+     "avg_r": -0.334
     },
     "CL": {
      "n": 34,
@@ -1610,21 +1634,21 @@
     }
    },
    "is_avg_r": -0.158,
-   "oos_avg_r": -0.205,
+   "oos_avg_r": -0.235,
    "robust": false
   },
   {
    "id": "t15-gap",
    "label": "1.5R target \u00b7 stop@gap edge",
-   "n": 112,
-   "win_rate": 36.6,
-   "avg_r": -0.211,
-   "total_r": -23.65,
-   "pf": 0.71,
+   "n": 113,
+   "win_rate": 36.3,
+   "avg_r": -0.221,
+   "total_r": -24.93,
+   "pf": 0.7,
    "per_market": {
     "NQ": {
-     "n": 40,
-     "avg_r": -0.235
+     "n": 41,
+     "avg_r": -0.261
     },
     "CL": {
      "n": 34,
@@ -1636,21 +1660,21 @@
     }
    },
    "is_avg_r": -0.253,
-   "oos_avg_r": -0.12,
+   "oos_avg_r": -0.152,
    "robust": false
   },
   {
    "id": "fade",
    "label": "FADE the setup (take opposite side)",
-   "n": 54,
-   "win_rate": 24.1,
-   "avg_r": -0.463,
-   "total_r": -24.98,
-   "pf": 0.41,
+   "n": 55,
+   "win_rate": 23.6,
+   "avg_r": -0.473,
+   "total_r": -25.99,
+   "pf": 0.4,
    "per_market": {
     "NQ": {
-     "n": 21,
-     "avg_r": -0.456
+     "n": 22,
+     "avg_r": -0.482
     },
     "CL": {
      "n": 5,
@@ -1662,21 +1686,21 @@
     }
    },
    "is_avg_r": -0.539,
-   "oos_avg_r": -0.31,
+   "oos_avg_r": -0.335,
    "robust": false
   },
   {
    "id": "t20-gap",
    "label": "2R target \u00b7 stop@gap edge",
-   "n": 112,
-   "win_rate": 27.7,
-   "avg_r": -0.296,
-   "total_r": -33.15,
-   "pf": 0.64,
+   "n": 113,
+   "win_rate": 27.4,
+   "avg_r": -0.305,
+   "total_r": -34.43,
+   "pf": 0.63,
    "per_market": {
     "NQ": {
-     "n": 40,
-     "avg_r": -0.435
+     "n": 41,
+     "avg_r": -0.456
     },
     "CL": {
      "n": 34,
@@ -1688,21 +1712,21 @@
     }
    },
    "is_avg_r": -0.272,
-   "oos_avg_r": -0.348,
+   "oos_avg_r": -0.374,
    "robust": false
   },
   {
    "id": "t10-gap",
    "label": "1R target \u00b7 stop@gap edge",
-   "n": 112,
-   "win_rate": 38.4,
-   "avg_r": -0.358,
-   "total_r": -40.15,
-   "pf": 0.49,
+   "n": 113,
+   "win_rate": 38.1,
+   "avg_r": -0.367,
+   "total_r": -41.43,
+   "pf": 0.48,
    "per_market": {
     "NQ": {
-     "n": 40,
-     "avg_r": -0.41
+     "n": 41,
+     "avg_r": -0.432
     },
     "CL": {
      "n": 34,
@@ -1714,7 +1738,7 @@
     }
    },
    "is_avg_r": -0.376,
-   "oos_avg_r": -0.32,
+   "oos_avg_r": -0.346,
    "robust": false
   }
  ],
@@ -1835,13 +1859,13 @@
  "retro": {
   "old": {
    "label": "OLD \u2014 base spec \u00b7 all markets \u00b7 all windows",
-   "n": 54,
-   "win_rate": 31.5,
-   "avg_r": -0.203,
-   "total_r": -10.99,
-   "pf": 0.71,
-   "is_avg_r": -0.196,
-   "oos_avg_r": -0.22,
+   "n": 55,
+   "win_rate": 32.7,
+   "avg_r": -0.186,
+   "total_r": -10.26,
+   "pf": 0.73,
+   "is_avg_r": -0.139,
+   "oos_avg_r": -0.294,
    "curve": [
     {
      "day": "2026-06-09",
@@ -2058,6 +2082,10 @@
     {
      "day": "2026-08-19",
      "cum_r": -10.99
+    },
+    {
+     "day": "2026-08-20",
+     "cum_r": -10.26
     }
    ]
   },
@@ -2660,6 +2688,30 @@
      "r": -1.0,
      "r_net": -1.011,
      "dollars": -930.0
+    },
+    {
+     "market": "NQ",
+     "contract": "NQF-continuous",
+     "day": "2026-08-20",
+     "window": "London 3-4am",
+     "bias": "bear",
+     "sweep_time": "2026-08-20 02:35",
+     "sweep_px": 29677.25,
+     "fvg_time": "2026-08-20 03:15",
+     "gap_far": 29644.75,
+     "gap_near": 29643.25,
+     "entry_time": "2026-08-20 03:20",
+     "exit_time": "2026-08-20 03:40",
+     "entry": 29643.25,
+     "stop": 29677.5,
+     "target": 29574.75,
+     "risk_pts": 34.25,
+     "outcome": "time",
+     "exit": 29617.75,
+     "pts": 25.5,
+     "r": 0.74,
+     "r_net": 0.73,
+     "dollars": 500.0
     }
    ],
    "CL": [
@@ -3796,6 +3848,30 @@
      "r": -1.0,
      "r_net": -1.083,
      "dollars": -130.0
+    },
+    {
+     "market": "NQ",
+     "contract": "NQ",
+     "day": "2026-08-20",
+     "window": "London 3-4am",
+     "bias": "bear",
+     "sweep_time": "2026-08-20 02:35",
+     "sweep_px": 29677.25,
+     "fvg_time": "2026-08-20 03:15",
+     "gap_far": 29644.75,
+     "gap_near": 29643.25,
+     "entry_time": "2026-08-20 03:20",
+     "exit_time": "2026-08-20 03:40",
+     "entry": 29643.25,
+     "stop": 29643.25,
+     "target": 29574.75,
+     "risk_pts": 34.25,
+     "outcome": "time",
+     "exit": 29617.75,
+     "pts": 25.5,
+     "r": 0.74,
+     "r_net": 0.73,
+     "dollars": 500.0
     }
    ],
    "CL": [
