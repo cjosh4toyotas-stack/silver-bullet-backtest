@@ -124,7 +124,13 @@
 
   <div class="main">
     <div class="panel" id="chartPanel">
-      <div class="panel-h">Price — 5 min
+      <div class="panel-h"><span id="tfLbl">Price — 5 min</span>
+        <span style="display:inline-flex;gap:2px;margin-left:10px" id="rngTabs">
+          <span class="tab sel" data-r="1D">1D</span>
+          <span class="tab" data-r="5D">5D</span>
+          <span class="tab" data-r="1M">1M</span>
+          <span class="tab" data-r="ALL">ALL</span>
+        </span>
         <div class="spacer"></div>
         <div class="legend">
           <span class="lg"><span class="sw" style="background:var(--pos)"></span>up</span>
@@ -133,7 +139,11 @@
           <span class="lg">▲ entry &nbsp;· exit ✕ &nbsp;· ··· stop/target</span>
         </div>
       </div>
-      <div id="chartWrap"><canvas id="chart"></canvas><div id="tooltip"></div></div>
+      <div id="chartWrap"><canvas id="chart"></canvas><div id="tooltip"></div>
+        <div id="tradeCard" style="position:absolute;top:8px;left:10px;display:none;
+          background:var(--surface-1);border:1px solid var(--border);border-radius:8px;
+          padding:9px 12px;font-size:11px;line-height:1.65;z-index:4;max-width:290px;
+          box-shadow:0 4px 14px rgba(0,0,0,.35)"></div></div>
     </div>
 
     <div class="panel" id="statsPanel">
@@ -207,7 +217,11 @@ function winList() {   // shaded bands follow the selected spec+market (NY minut
   return [[180, 240], [600, 660], [840, 900]];
 }
 
-let state = { market: "NQ", spec: "old", day: null, selTrade: null };
+let state = { market: "NQ", spec: "old", day: null, selTrade: null, range: "1D" };
+const RANGES = { "1D": { days: 1, bin: 5, lbl: "5 min" },
+                 "5D": { days: 5, bin: 15, lbl: "15 min" },
+                 "1M": { days: 22, bin: 60, lbl: "1 hour" },
+                 "ALL": { days: 9999, bin: 240, lbl: "4 hour" } };
 const SPEC_LABELS = {
   old: "OLD — base spec (all 3 equity windows, 2R, sweep stop)",
   new: { NQ: "NEW — London+AM only · 2R · breakeven",
@@ -324,6 +338,16 @@ function buildTiles() {
     ["Max drawdown", "$" + Math.round(o.maxdd).toLocaleString(), "peak to trough"],
     ["Avg / trade", fm(o.avg), "after costs"],
   ];
+  const tr = curTrades();
+  if (tr.length) {
+    const last = tr[tr.length - 1];
+    const days = Math.max(0, Math.round(
+      (Date.now() - new Date(last.day + "T12:00:00")) / 86400000));
+    t.push(["Last trade", days === 0 ? "today" : days + "d ago",
+            `${last.day} · ${last.outcome} · ${fm(last.dollars)}`]);
+  } else {
+    t.push(["Last trade", "—", "no qualifying setups yet"]);
+  }
   $("tiles").innerHTML = t.map(x =>
     `<div class="tile"><div class="k">${x[0]}</div><div class="v">${x[1]}</div><div class="d">${x[2]}</div></div>`).join("");
 }
@@ -518,6 +542,51 @@ function setTab(blot) {
 const cnv = $("chart"), ctx = cnv.getContext("2d");
 let view = null; // {dayBars, x0, bw, lo, hi, plotW, plotH, padL, padT}
 
+document.querySelectorAll("#rngTabs .tab").forEach(t => t.onclick = () => {
+  state.range = t.dataset.r;
+  document.querySelectorAll("#rngTabs .tab").forEach(x =>
+    x.classList.toggle("sel", x.dataset.r === state.range));
+  $("tfLbl").textContent = "Price — " + RANGES[state.range].lbl;
+  drawChart();
+});
+
+function viewData() {
+  const raw = bars();
+  const cfg = RANGES[state.range];
+  const ds = daysOf(keyFor(state.market));
+  const endIdx = Math.max(ds.indexOf(state.day), 0);
+  const startIdx = Math.max(0, endIdx - cfg.days + 1);
+  const daysSet = new Set(ds.slice(startIdx, endIdx + 1));
+  const sub = raw.filter(b => daysSet.has(b[6]));
+  if (cfg.bin === 5) return { db: sub, daysSet };
+  const binS = cfg.bin * 60, out = [];
+  let cur = null, curKey = null;
+  for (const b of sub) {
+    const k = Math.floor(b[0] / binS);
+    if (k !== curKey) {
+      if (cur) out.push(cur);
+      curKey = k;
+      cur = [k * binS, b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8]];
+    } else {
+      cur[2] = Math.max(cur[2], b[2]); cur[3] = Math.min(cur[3], b[3]);
+      cur[4] = b[4]; cur[5] += b[5];
+    }
+  }
+  if (cur) out.push(cur);
+  return { db: out, daysSet };
+}
+
+function locIdx(db, tstr) {
+  if (!tstr) return null;
+  const d = tstr.slice(0, 10), hm = tstr.slice(11, 16);
+  let best = null;
+  for (let i = 0; i < db.length; i++) {
+    if (db[i][6] < d || (db[i][6] === d && db[i][8] <= hm)) best = i;
+    else if (db[i][6] > d) break;
+  }
+  return best;
+}
+
 function drawChart() {
   const wrap = $("chartWrap");
   const dpr = window.devicePixelRatio || 1;
@@ -526,11 +595,11 @@ function drawChart() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
 
-  const db = bars().filter(b => b[6] === state.day);
+  const { db, daysSet } = viewData();
   if (!db.length) return;
   const padL = 8, padR = 62, padT = 10, padB = 24;
   const plotW = W - padL - padR, plotH = H - padT - padB;
-  const trades = curTrades().filter(t => t.day === state.day);
+  const trades = curTrades().filter(t => daysSet.has(t.day));
   let lo = Math.min(...db.map(b => b[3])), hi = Math.max(...db.map(b => b[2]));
   trades.forEach(t => { lo = Math.min(lo, t.stop, t.target); hi = Math.max(hi, t.stop, t.target); });
   const span = Math.max(hi - lo, 1); lo -= span * .05; hi += span * .05;
@@ -541,15 +610,17 @@ function drawChart() {
   const Y = p => padT + plotH * (1 - (p - lo) / (hi - lo + 0));
   view = { db, bw, lo, hi, plotW, plotH, padL, padT, X, Y, trades };
 
-  // window shading
-  ctx.fillStyle = "rgba(57,135,229,0.10)";
-  winList().forEach(([a, b]) => {
-    let i0 = null, i1 = null;
-    db.forEach((bar, i) => {
-      if (bar[7] >= a && bar[7] < b) { if (i0 === null) i0 = i; i1 = i; }
+  // window shading (single-day view only; multi-day views stay clean)
+  if (state.range === "1D") {
+    ctx.fillStyle = "rgba(57,135,229,0.10)";
+    winList().forEach(([a, b]) => {
+      let i0 = null, i1 = null;
+      db.forEach((bar, i) => {
+        if (bar[7] >= a && bar[7] < b) { if (i0 === null) i0 = i; i1 = i; }
+      });
+      if (i0 !== null) ctx.fillRect(X(i0) - bw / 2, padT, (i1 - i0 + 1) * bw, plotH);
     });
-    if (i0 !== null) ctx.fillRect(X(i0) - bw / 2, padT, (i1 - i0 + 1) * bw, plotH);
-  });
+  }
 
   // price gridlines
   const gstep = niceStep(span / 5);
@@ -560,16 +631,28 @@ function drawChart() {
     ctx.beginPath(); ctx.moveTo(padL, Y(g)); ctx.lineTo(padL + plotW, Y(g)); ctx.stroke();
     ctx.fillText(g.toLocaleString(), padL + plotW + 6, Y(g));
   }
-  // time labels every 2h
+  // x labels: intraday times for 1D, date boundaries for multi-day views
   ctx.textAlign = "center"; ctx.textBaseline = "top";
-  db.forEach((bar, i) => {
-    if (bar[7] % 120 === 0) {
-      ctx.fillText(String(Math.floor(bar[7] / 60)).padStart(2, "0") + ":00",
-        X(i), padT + plotH + 6);
+  if (state.range === "1D") {
+    db.forEach((bar, i) => {
+      if (bar[7] % 120 === 0) {
+        ctx.fillText(String(Math.floor(bar[7] / 60)).padStart(2, "0") + ":00",
+          X(i), padT + plotH + 6);
+        ctx.strokeStyle = css("--grid");
+        ctx.beginPath(); ctx.moveTo(X(i), padT); ctx.lineTo(X(i), padT + plotH); ctx.stroke();
+      }
+    });
+  } else {
+    const boundaries = [];
+    db.forEach((bar, i) => { if (i === 0 || bar[6] !== db[i - 1][6]) boundaries.push(i); });
+    const every = Math.max(1, Math.ceil(boundaries.length / 9));
+    boundaries.forEach((i, k) => {
       ctx.strokeStyle = css("--grid");
       ctx.beginPath(); ctx.moveTo(X(i), padT); ctx.lineTo(X(i), padT + plotH); ctx.stroke();
-    }
-  });
+      if (k % every === 0)
+        ctx.fillText(db[i][6].slice(5), X(i), padT + plotH + 6);
+    });
+  }
 
   // candles
   const up = css("--pos"), dn = css("--neg");
@@ -584,10 +667,45 @@ function drawChart() {
   });
 
   // trades overlay
+  const allTr = curTrades();
+  view.marks = [];
   trades.forEach(t => {
-    const iE = idxAt(db, t.entry_time), iX = idxAt(db, t.exit_time);
+    const gi = allTr.indexOf(t);
+    const isSel = state.selTrade !== null && gi === state.selTrade;
+    const iE = locIdx(db, t.entry_time), iX = locIdx(db, t.exit_time);
     if (iE === null) return;
     const x1 = X(iE), x2 = iX !== null ? X(iX) : padL + plotW;
+    view.marks.push({ x: x1, y: Y(t.entry), gi });
+    // selected trade: full anatomy — sweep point + FVG zone + IN/OUT labels
+    if (isSel) {
+      if (t.gap_far != null && t.gap_near != null) {
+        const iF = locIdx(db, t.fvg_time);
+        const gx1 = iF !== null ? X(iF) - bw / 2 : x1 - 30;
+        const yA = Y(t.gap_far), yB = Y(t.gap_near);
+        ctx.fillStyle = "rgba(57,135,229,0.20)";
+        ctx.fillRect(gx1, Math.min(yA, yB), Math.max(x1 - gx1, 8), Math.abs(yB - yA));
+        ctx.strokeStyle = css("--pos"); ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+        ctx.strokeRect(gx1, Math.min(yA, yB), Math.max(x1 - gx1, 8), Math.abs(yB - yA));
+        ctx.setLineDash([]);
+        ctx.fillStyle = css("--ink-2"); ctx.font = "10px system-ui";
+        ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+        ctx.fillText("FVG", gx1 + 2, Math.min(yA, yB) - 2);
+      }
+      if (t.sweep_px != null) {
+        const iS = locIdx(db, t.sweep_time);
+        if (iS !== null) {
+          ctx.strokeStyle = "#eda100"; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.arc(X(iS), Y(t.sweep_px), 5, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = "#eda100"; ctx.font = "600 10px system-ui";
+          ctx.textAlign = "center"; ctx.textBaseline = "top";
+          ctx.fillText("sweep", X(iS), Y(t.sweep_px) + 7);
+        }
+      }
+      ctx.font = "600 10px system-ui"; ctx.textAlign = "center";
+      ctx.fillStyle = css("--ink-1"); ctx.textBaseline = "bottom";
+      ctx.fillText("IN " + t.entry_time.slice(11), x1,
+                   Y(t.entry) + (t.bias === "bull" ? -12 : 22));
+    }
     // stop & target dashed lines across trade duration
     ctx.setLineDash([4, 4]); ctx.lineWidth = 1.2;
     ctx.strokeStyle = dn;
@@ -607,10 +725,38 @@ function drawChart() {
       xmark(x2, Y(t.exit));
       ctx.fillStyle = t.dollars >= 0 ? up : dn;
       ctx.font = "600 11px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
-      ctx.fillText(fm(t.dollars), Math.min(x2 + 6, padL + plotW - 40), Y(t.exit) - 4);
+      const lbl = isSel
+        ? `OUT ${t.exit_time.slice(11)} · ${t.pts > 0 ? "+" : ""}${t.pts}pts · ${(t.r ?? 0) > 0 ? "+" : ""}${t.r}R`
+        : fm(t.dollars);
+      ctx.fillText(lbl, Math.min(x2 + 6, padL + plotW - (isSel ? 150 : 40)), Y(t.exit) - 4);
     }
   });
   ctx.textAlign = "left";
+  updateTradeCard(trades, allTr);
+}
+
+function updateTradeCard(visible, allTr) {
+  const card = $("tradeCard");
+  const t = state.selTrade !== null ? allTr[state.selTrade] : null;
+  if (!t || !visible.includes(t)) { card.style.display = "none"; return; }
+  const durMin = (new Date(t.exit_time.replace(" ", "T")) -
+                  new Date(t.entry_time.replace(" ", "T"))) / 60000;
+  const rows = [];
+  rows.push(`<b>${t.bias === "bull" ? "LONG" : "SHORT"} · ${t.day} · ${t.window}</b>`);
+  if (t.sweep_px != null)
+    rows.push(`1&nbsp; Liquidity sweep @ ${t.sweep_px.toLocaleString()} — ${t.sweep_time.slice(11)}`);
+  if (t.gap_far != null)
+    rows.push(`2&nbsp; FVG formed ${t.gap_far.toLocaleString()}–${t.gap_near.toLocaleString()} — ${(t.fvg_time || "").slice(11)}`);
+  rows.push(`3&nbsp; <b>IN</b> ${t.entry_time.slice(11)} @ ${t.entry.toLocaleString()} · risk ${t.risk_pts}pts`);
+  rows.push(`&nbsp;&nbsp;&nbsp; stop ${t.stop.toLocaleString()} · target ${t.target.toLocaleString()}`);
+  rows.push(`4&nbsp; <b>OUT</b> ${t.exit_time.slice(11)} @ ${t.exit.toLocaleString()} · ${t.outcome} · ${Math.round(durMin)} min`);
+  rows.push(`<span class="${t.dollars >= 0 ? "up" : "dn"}"><b>${fm(t.dollars)}</b> · ${t.pts > 0 ? "+" : ""}${t.pts} pts · ${(t.r ?? 0) > 0 ? "+" : ""}${t.r}R</span>`);
+  card.innerHTML = rows.join("<br>");
+  const m = (view.marks || []).find(x => x.gi === state.selTrade);
+  const half = $("chartWrap").clientWidth / 2;
+  if (m && m.x < half) { card.style.left = "auto"; card.style.right = "72px"; }
+  else { card.style.right = "auto"; card.style.left = "10px"; }
+  card.style.display = "";
 }
 function tri(x, y, isUp) {
   ctx.beginPath();
@@ -650,13 +796,27 @@ $("chartWrap").addEventListener("mousemove", e => {
   ctx.strokeStyle = css("--ink-muted"); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(view.X(i), view.padT);
   ctx.lineTo(view.X(i), view.padT + view.plotH); ctx.stroke(); ctx.setLineDash([]);
-  tt.innerHTML = `<b>${b[8]}</b> NY<br>O ${b[1]} · H ${b[2]}<br>L ${b[3]} · C ${b[4]}<br>Vol ${b[5].toLocaleString()}`;
+  tt.innerHTML = `<b>${b[6]} ${b[8]}</b> NY<br>O ${b[1]} · H ${b[2]}<br>L ${b[3]} · C ${b[4]}<br>Vol ${b[5].toLocaleString()}`;
   tt.style.opacity = 1;
   const wrapR = $("chartWrap").getBoundingClientRect();
   tt.style.left = Math.min(e.clientX - wrapR.left + 14, wrapR.width - 130) + "px";
   tt.style.top = Math.min(e.clientY - wrapR.top + 14, wrapR.height - 80) + "px";
 });
 $("chartWrap").addEventListener("mouseleave", () => { $("tooltip").style.opacity = 0; drawChart(); });
+$("chartWrap").addEventListener("click", e => {
+  if (!view || !view.marks || !view.marks.length) return;
+  const rect = cnv.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  let best = null, bd = 14;
+  view.marks.forEach(m => {
+    const d = Math.hypot(m.x - mx, m.y - my);
+    if (d < bd) { bd = d; best = m; }
+  });
+  if (best !== null) {
+    state.selTrade = state.selTrade === best.gi ? null : best.gi;
+    drawChart(); markSel();
+  }
+});
 window.addEventListener("resize", drawChart);
 
 /* ===== live auto-refresh (page updates itself while the tab is open) ===== */
