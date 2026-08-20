@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-08-20 15:45 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 14298 bars, 2026-06-08 → 2026-08-20; CL: 14067 bars, 2026-06-09 → 2026-08-20; ES: 14023 bars, 2026-06-09 → 2026-08-20
+**Last updated:** 2026-08-20 16:47 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 14310 bars, 2026-06-08 → 2026-08-20; CL: 14079 bars, 2026-06-09 → 2026-08-20; ES: 14035 bars, 2026-06-09 → 2026-08-20
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
