@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-08-25 01:48",
+ "generated_utc": "2026-08-25 03:09",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 14955,
+   "bars": 14971,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-08-24 21:35"
+   "last_ny": "2026-08-24 22:55"
   },
   {
    "contract": "CL",
-   "bars": 14723,
+   "bars": 14739,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-08-24 21:35"
+   "last_ny": "2026-08-24 22:55"
   },
   {
    "contract": "ES",
-   "bars": 14680,
+   "bars": 14696,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-08-24 21:35"
+   "last_ny": "2026-08-24 22:55"
   }
  ],
  "overall": {
