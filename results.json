@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-08-28 11:16",
+ "generated_utc": "2026-08-28 21:31",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 15891,
+   "bars": 16009,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-08-28 07:05"
+   "last_ny": "2026-08-28 16:55"
   },
   {
    "contract": "CL",
-   "bars": 15664,
+   "bars": 15782,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-08-28 07:05"
+   "last_ny": "2026-08-28 16:55"
   },
   {
    "contract": "ES",
-   "bars": 15616,
+   "bars": 15734,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-08-28 07:05"
+   "last_ny": "2026-08-28 16:55"
   }
  ],
  "overall": {
@@ -1705,14 +1705,14 @@
    "id": "notime",
    "label": "2R \u00b7 no time exit (hold 6.5h)",
    "n": 62,
-   "win_rate": 29.0,
-   "avg_r": -0.216,
-   "total_r": -13.4,
-   "pf": 0.71,
+   "win_rate": 27.4,
+   "avg_r": -0.235,
+   "total_r": -14.57,
+   "pf": 0.69,
    "per_market": {
     "NQ": {
      "n": 24,
-     "avg_r": -0.358
+     "avg_r": -0.407
     },
     "CL": {
      "n": 7,
@@ -1724,7 +1724,7 @@
     }
    },
    "is_avg_r": -0.167,
-   "oos_avg_r": -0.311,
+   "oos_avg_r": -0.367,
    "robust": false
   },
   {
@@ -1756,11 +1756,11 @@
   {
    "id": "t30-gap",
    "label": "3R target \u00b7 stop@gap edge",
-   "n": 127,
-   "win_rate": 25.2,
-   "avg_r": -0.131,
-   "total_r": -16.62,
-   "pf": 0.85,
+   "n": 128,
+   "win_rate": 25.0,
+   "avg_r": -0.139,
+   "total_r": -17.78,
+   "pf": 0.84,
    "per_market": {
     "NQ": {
      "n": 45,
@@ -1771,11 +1771,11 @@
      "avg_r": -0.042
     },
     "ES": {
-     "n": 42,
-     "avg_r": -0.106
+     "n": 43,
+     "avg_r": -0.13
     }
    },
-   "is_avg_r": -0.139,
+   "is_avg_r": -0.15,
    "oos_avg_r": -0.113,
    "robust": false
   },
@@ -1808,11 +1808,11 @@
   {
    "id": "t15-gap",
    "label": "1.5R target \u00b7 stop@gap edge",
-   "n": 127,
-   "win_rate": 38.6,
-   "avg_r": -0.165,
-   "total_r": -20.93,
-   "pf": 0.77,
+   "n": 128,
+   "win_rate": 38.3,
+   "avg_r": -0.173,
+   "total_r": -22.09,
+   "pf": 0.76,
    "per_market": {
     "NQ": {
      "n": 45,
@@ -1823,11 +1823,11 @@
      "avg_r": 0.046
     },
     "ES": {
-     "n": 42,
-     "avg_r": -0.292
+     "n": 43,
+     "avg_r": -0.312
     }
    },
-   "is_avg_r": -0.188,
+   "is_avg_r": -0.199,
    "oos_avg_r": -0.113,
    "robust": false
   },
@@ -1860,11 +1860,11 @@
   {
    "id": "t20-gap",
    "label": "2R target \u00b7 stop@gap edge",
-   "n": 127,
-   "win_rate": 29.9,
-   "avg_r": -0.232,
-   "total_r": -29.43,
-   "pf": 0.71,
+   "n": 128,
+   "win_rate": 29.7,
+   "avg_r": -0.239,
+   "total_r": -30.59,
+   "pf": 0.7,
    "per_market": {
     "NQ": {
      "n": 45,
@@ -1875,21 +1875,21 @@
      "avg_r": -0.092
     },
     "ES": {
-     "n": 42,
-     "avg_r": -0.196
+     "n": 43,
+     "avg_r": -0.219
     }
    },
-   "is_avg_r": -0.239,
+   "is_avg_r": -0.249,
    "oos_avg_r": -0.216,
    "robust": false
   },
   {
    "id": "t10-gap",
    "label": "1R target \u00b7 stop@gap edge",
-   "n": 127,
-   "win_rate": 40.9,
-   "avg_r": -0.311,
-   "total_r": -39.44,
+   "n": 128,
+   "win_rate": 40.6,
+   "avg_r": -0.317,
+   "total_r": -40.59,
    "pf": 0.54,
    "per_market": {
     "NQ": {
@@ -1901,11 +1901,11 @@
      "avg_r": -0.142
     },
     "ES": {
-     "n": 42,
-     "avg_r": -0.363
+     "n": 43,
+     "avg_r": -0.382
     }
    },
-   "is_avg_r": -0.33,
+   "is_avg_r": -0.339,
    "oos_avg_r": -0.267,
    "robust": false
   }
