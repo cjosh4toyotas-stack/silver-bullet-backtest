@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-09-02 19:28 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 16814 bars, 2026-06-08 → 2026-09-02; CL: 16589 bars, 2026-06-09 → 2026-09-02; ES: 16539 bars, 2026-06-09 → 2026-09-02
+**Last updated:** 2026-09-02 21:57 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 16834 bars, 2026-06-08 → 2026-09-02; CL: 16609 bars, 2026-06-09 → 2026-09-02; ES: 16559 bars, 2026-06-09 → 2026-09-02
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -10,7 +10,7 @@ Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 
 
 | Net P&L | Trades | Win rate | Profit factor | Max drawdown | Avg/trade |
 |---|---|---|---|---|---|
-| **−$4,515** | 25 (4T/17S/4X) | 28.0% | 0.58 | $6,755 | −$181 |
+| **−$5,260** | 25 (4T/18S/3X) | 28.0% | 0.54 | $6,755 | −$210 |
 
 T = target hit, S = stopped, X = 2-hour time exit
 
@@ -24,7 +24,7 @@ T = target hit, S = stopped, X = 2-hour time exit
 |---|---|---|---|---|
 | London 3-4am | 15 | 33.3% | −$1,280 | 0.8 |
 | AM 10-11am | 2 | 0.0% | −$645 | 0.0 |
-| PM 2-3pm | 8 | 25.0% | −$2,590 | 0.3 |
+| PM 2-3pm | 8 | 25.0% | −$3,335 | 0.25 |
 
 ## Cross-market robustness
 
@@ -32,9 +32,9 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 
 | Market | Trades | Win % | Avg R | Total R | Profit factor (R) | Net $ (1 contract) |
 |---|---|---|---|---|---|---|
-| NQ | 25 | 28.0% | -0.31 | -7.87 | 0.55 | −$4,515 |
+| NQ | 25 | 28.0% | -0.34 | -8.53 | 0.53 | −$5,260 |
 | CL | 7 | 28.6% | -0.14 | -1.0 | 0.8 | −$200 |
-| ES | 33 | 33.3% | -0.04 | -1.25 | 0.94 | +$82 |
+| ES | 33 | 33.3% | -0.06 | -2.13 | 0.9 | −$380 |
 
 ## Old vs New — the retro comparison
 
@@ -42,7 +42,7 @@ The parameter analysis (Aug 2026) found the base spec's consistent failures — 
 
 | Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |
 |---|---|---|---|---|---|---|
-| OLD — base spec · all markets · all windows | 65 | 30.8% | -0.213 | -13.87 | 0.69 | -0.119 → -0.427 |
+| OLD — base spec · all markets · all windows | 65 | 30.8% | -0.237 | -15.41 | 0.67 | -0.119 → -0.504 |
 | NEW v2 — ES only · London+AM · 2R · breakeven after +1R | 24 | 37.5% | 0.162 | 3.9 | 1.34 | 0.284 → -0.08 |
 
 ## System Lab — which variant is most profitable?
@@ -51,15 +51,15 @@ Every mechanical variant of the strategy, run on all markets, ranked by total co
 
 | Rank | Variant | Trades | Win % | Avg R | Total R | PF | NQ avg R | ES avg R | CL avg R | IS → OOS | Robust |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 2R · breakeven stop after +1R | 65 | 27.7% | -0.074 | -4.78 | 0.86 | -0.263 (25) | 0.06 (33) | -0.028 (7) | 0.028 → -0.286 | — |
-| 2 | 1R target · stop@sweep | 65 | 47.7% | -0.1 | -6.48 | 0.81 | -0.223 (25) | -0.022 (33) | -0.028 (7) | -0.056 → -0.191 | — |
-| 3 | 2R target · stop@sweep (base) | 65 | 30.8% | -0.213 | -13.87 | 0.69 | -0.346 (25) | -0.091 (33) | -0.314 (7) | -0.09 → -0.472 | — |
-| 4 | 2R · no time exit (hold 6.5h) | 65 | 26.2% | -0.249 | -16.2 | 0.67 | -0.405 (25) | -0.118 (33) | -0.314 (7) | -0.091 → -0.58 | — |
-| 5 | 3R target · stop@sweep | 65 | 24.6% | -0.271 | -17.59 | 0.65 | -0.399 (25) | 0.018 (33) | -1.171 (7) | -0.061 → -0.71 | — |
+| 1 | 2R · breakeven stop after +1R | 65 | 27.7% | -0.097 | -6.32 | 0.83 | -0.289 (25) | 0.033 (33) | -0.028 (7) | 0.028 → -0.36 | — |
+| 2 | 1R target · stop@sweep | 65 | 47.7% | -0.123 | -8.02 | 0.78 | -0.249 (25) | -0.048 (33) | -0.028 (7) | -0.056 → -0.264 | — |
+| 3 | 2R target · stop@sweep (base) | 65 | 30.8% | -0.237 | -15.41 | 0.67 | -0.372 (25) | -0.118 (33) | -0.314 (7) | -0.09 → -0.546 | — |
+| 4 | 2R · no time exit (hold 6.5h) | 65 | 26.2% | -0.273 | -17.74 | 0.65 | -0.431 (25) | -0.144 (33) | -0.314 (7) | -0.091 → -0.653 | — |
+| 5 | 3R target · stop@sweep | 65 | 24.6% | -0.294 | -19.13 | 0.63 | -0.425 (25) | -0.009 (33) | -1.171 (7) | -0.061 → -0.784 | — |
 | 6 | 3R target · stop@gap edge | 137 | 24.8% | -0.143 | -19.58 | 0.83 | -0.3 (49) | -0.175 (45) | 0.07 (43) | -0.083 → -0.278 | — |
-| 7 | 1.5R target · stop@sweep | 65 | 32.3% | -0.306 | -19.87 | 0.56 | -0.426 (25) | -0.182 (33) | -0.457 (7) | -0.192 → -0.544 | — |
+| 7 | 1.5R target · stop@sweep | 65 | 32.3% | -0.329 | -21.41 | 0.54 | -0.452 (25) | -0.209 (33) | -0.457 (7) | -0.192 → -0.617 | — |
 | 8 | 1.5R target · stop@gap edge | 137 | 38.0% | -0.178 | -24.39 | 0.75 | -0.3 (49) | -0.293 (45) | 0.081 (43) | -0.149 → -0.243 | — |
-| 9 | FADE the setup (take opposite side) | 65 | 26.2% | -0.431 | -28.03 | 0.44 | -0.372 (25) | -0.41 (33) | -0.743 (7) | -0.537 → -0.211 | — |
+| 9 | FADE the setup (take opposite side) | 65 | 26.2% | -0.42 | -27.33 | 0.45 | -0.373 (25) | -0.388 (33) | -0.743 (7) | -0.537 → -0.177 | — |
 | 10 | 2R target · stop@gap edge | 137 | 29.2% | -0.251 | -34.39 | 0.69 | -0.443 (49) | -0.26 (45) | -0.023 (43) | -0.207 → -0.35 | — |
 | 11 | 1R target · stop@gap edge | 137 | 40.1% | -0.324 | -44.39 | 0.53 | -0.463 (49) | -0.371 (45) | -0.116 (43) | -0.302 → -0.374 | — |
 
@@ -84,7 +84,7 @@ Crude oil's liquidity clock differs from equity indices, so the same sweep→FVG
 
 | Date | Window | Dir | Entry | Risk (pts) | Exit | P&L |
 |---|---|---|---|---|---|---|
-| 2026-09-02 | PM 2-3pm | bear | 29143.5 | 56.5 | time | −$395 |
+| 2026-09-02 | PM 2-3pm | bear | 29143.5 | 56.5 | stop | −$1,140 |
 | 2026-08-28 | London 3-4am | bear | 29619.0 | 34.75 | time | +$55 |
 | 2026-08-27 | London 3-4am | bear | 29515.0 | 27.5 | stop | −$560 |
 | 2026-08-20 | London 3-4am | bear | 29643.25 | 34.25 | target | +$1,360 |
