@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-09-02 11:41",
+ "generated_utc": "2026-09-02 16:30",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 16721,
+   "bars": 16779,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-09-02 07:30"
+   "last_ny": "2026-09-02 12:20"
   },
   {
    "contract": "CL",
-   "bars": 16496,
+   "bars": 16554,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-09-02 07:30"
+   "last_ny": "2026-09-02 12:20"
   },
   {
    "contract": "ES",
-   "bars": 16446,
+   "bars": 16504,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-09-02 07:30"
+   "last_ny": "2026-09-02 12:20"
   }
  ],
  "overall": {
@@ -424,7 +424,7 @@
   },
   {
    "market": "NQ",
-   "contract": "NQ202609",
+   "contract": "NQF-continuous",
    "day": "2026-08-06",
    "window": "PM 2-3pm",
    "bias": "bear",
@@ -1726,6 +1726,32 @@
    "robust": false
   },
   {
+   "id": "t30-gap",
+   "label": "3R target \u00b7 stop@gap edge",
+   "n": 133,
+   "win_rate": 25.6,
+   "avg_r": -0.114,
+   "total_r": -15.22,
+   "pf": 0.86,
+   "per_market": {
+    "NQ": {
+     "n": 47,
+     "avg_r": -0.268
+    },
+    "CL": {
+     "n": 42,
+     "avg_r": 0.097
+    },
+    "ES": {
+     "n": 44,
+     "avg_r": -0.152
+    }
+   },
+   "is_avg_r": -0.171,
+   "oos_avg_r": 0.007,
+   "robust": false
+  },
+  {
    "id": "notime",
    "label": "2R \u00b7 no time exit (hold 6.5h)",
    "n": 63,
@@ -1778,32 +1804,6 @@
    "robust": false
   },
   {
-   "id": "t30-gap",
-   "label": "3R target \u00b7 stop@gap edge",
-   "n": 133,
-   "win_rate": 24.8,
-   "avg_r": -0.144,
-   "total_r": -19.2,
-   "pf": 0.83,
-   "per_market": {
-    "NQ": {
-     "n": 48,
-     "avg_r": -0.284
-    },
-    "CL": {
-     "n": 41,
-     "avg_r": 0.028
-    },
-    "ES": {
-     "n": 44,
-     "avg_r": -0.152
-    }
-   },
-   "is_avg_r": -0.17,
-   "oos_avg_r": -0.089,
-   "robust": false
-  },
-  {
    "id": "t15-sweep",
    "label": "1.5R target \u00b7 stop@sweep",
    "n": 63,
@@ -1833,26 +1833,26 @@
    "id": "t15-gap",
    "label": "1.5R target \u00b7 stop@gap edge",
    "n": 133,
-   "win_rate": 38.3,
-   "avg_r": -0.169,
-   "total_r": -22.51,
-   "pf": 0.76,
+   "win_rate": 39.1,
+   "avg_r": -0.151,
+   "total_r": -20.03,
+   "pf": 0.78,
    "per_market": {
     "NQ": {
-     "n": 48,
-     "avg_r": -0.284
+     "n": 47,
+     "avg_r": -0.268
     },
     "CL": {
-     "n": 41,
-     "avg_r": 0.076
+     "n": 42,
+     "avg_r": 0.109
     },
     "ES": {
      "n": 44,
      "avg_r": -0.273
     }
    },
-   "is_avg_r": -0.217,
-   "oos_avg_r": -0.065,
+   "is_avg_r": -0.191,
+   "oos_avg_r": -0.064,
    "robust": false
   },
   {
@@ -1885,18 +1885,18 @@
    "id": "t20-gap",
    "label": "2R target \u00b7 stop@gap edge",
    "n": 133,
-   "win_rate": 29.3,
-   "avg_r": -0.248,
-   "total_r": -33.01,
-   "pf": 0.69,
+   "win_rate": 30.1,
+   "avg_r": -0.226,
+   "total_r": -30.03,
+   "pf": 0.72,
    "per_market": {
     "NQ": {
-     "n": 48,
-     "avg_r": -0.43
+     "n": 47,
+     "avg_r": -0.417
     },
     "CL": {
-     "n": 41,
-     "avg_r": -0.046
+     "n": 42,
+     "avg_r": 0.002
     },
     "ES": {
      "n": 44,
@@ -1904,33 +1904,33 @@
     }
    },
    "is_avg_r": -0.267,
-   "oos_avg_r": -0.208,
+   "oos_avg_r": -0.136,
    "robust": false
   },
   {
    "id": "t10-gap",
    "label": "1R target \u00b7 stop@gap edge",
    "n": 133,
-   "win_rate": 40.6,
-   "avg_r": -0.316,
-   "total_r": -42.01,
-   "pf": 0.54,
+   "win_rate": 41.4,
+   "avg_r": -0.301,
+   "total_r": -40.03,
+   "pf": 0.55,
    "per_market": {
     "NQ": {
-     "n": 48,
-     "avg_r": -0.451
+     "n": 47,
+     "avg_r": -0.439
     },
     "CL": {
-     "n": 41,
-     "avg_r": -0.119
+     "n": 42,
+     "avg_r": -0.093
     },
     "ES": {
      "n": 44,
      "avg_r": -0.352
     }
    },
-   "is_avg_r": -0.355,
-   "oos_avg_r": -0.232,
+   "is_avg_r": -0.333,
+   "oos_avg_r": -0.231,
    "robust": false
   }
  ],
@@ -2763,7 +2763,7 @@
     },
     {
      "market": "NQ",
-     "contract": "NQ202609",
+     "contract": "NQF-continuous",
      "day": "2026-08-06",
      "window": "PM 2-3pm",
      "bias": "bear",
