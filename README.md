@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-09-02 16:30 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 16779 bars, 2026-06-08 → 2026-09-02; CL: 16554 bars, 2026-06-09 → 2026-09-02; ES: 16504 bars, 2026-06-09 → 2026-09-02
+**Last updated:** 2026-09-02 19:28 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 16814 bars, 2026-06-08 → 2026-09-02; CL: 16589 bars, 2026-06-09 → 2026-09-02; ES: 16539 bars, 2026-06-09 → 2026-09-02
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -10,7 +10,7 @@ Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 
 
 | Net P&L | Trades | Win rate | Profit factor | Max drawdown | Avg/trade |
 |---|---|---|---|---|---|
-| **−$4,120** | 24 (4T/17S/3X) | 29.2% | 0.6 | $6,755 | −$172 |
+| **−$4,515** | 25 (4T/17S/4X) | 28.0% | 0.58 | $6,755 | −$181 |
 
 T = target hit, S = stopped, X = 2-hour time exit
 
@@ -24,7 +24,7 @@ T = target hit, S = stopped, X = 2-hour time exit
 |---|---|---|---|---|
 | London 3-4am | 15 | 33.3% | −$1,280 | 0.8 |
 | AM 10-11am | 2 | 0.0% | −$645 | 0.0 |
-| PM 2-3pm | 7 | 28.6% | −$2,195 | 0.34 |
+| PM 2-3pm | 8 | 25.0% | −$2,590 | 0.3 |
 
 ## Cross-market robustness
 
@@ -32,9 +32,9 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 
 | Market | Trades | Win % | Avg R | Total R | Profit factor (R) | Net $ (1 contract) |
 |---|---|---|---|---|---|---|
-| NQ | 24 | 29.2% | -0.31 | -7.53 | 0.56 | −$4,120 |
+| NQ | 25 | 28.0% | -0.31 | -7.87 | 0.55 | −$4,515 |
 | CL | 7 | 28.6% | -0.14 | -1.0 | 0.8 | −$200 |
-| ES | 32 | 34.4% | -0.04 | -1.13 | 0.94 | +$155 |
+| ES | 33 | 33.3% | -0.04 | -1.25 | 0.94 | +$82 |
 
 ## Old vs New — the retro comparison
 
@@ -42,7 +42,7 @@ The parameter analysis (Aug 2026) found the base spec's consistent failures — 
 
 | Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |
 |---|---|---|---|---|---|---|
-| OLD — base spec · all markets · all windows | 63 | 31.7% | -0.212 | -13.38 | 0.7 | -0.158 → -0.339 |
+| OLD — base spec · all markets · all windows | 65 | 30.8% | -0.213 | -13.87 | 0.69 | -0.119 → -0.427 |
 | NEW v2 — ES only · London+AM · 2R · breakeven after +1R | 24 | 37.5% | 0.162 | 3.9 | 1.34 | 0.284 → -0.08 |
 
 ## System Lab — which variant is most profitable?
@@ -51,17 +51,17 @@ Every mechanical variant of the strategy, run on all markets, ranked by total co
 
 | Rank | Variant | Trades | Win % | Avg R | Total R | PF | NQ avg R | ES avg R | CL avg R | IS → OOS | Robust |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 2R · breakeven stop after +1R | 63 | 28.6% | -0.068 | -4.29 | 0.88 | -0.259 (24) | 0.066 (32) | -0.028 (7) | -0.064 → -0.077 | — |
-| 2 | 1R target · stop@sweep | 63 | 49.2% | -0.095 | -5.99 | 0.82 | -0.217 (24) | -0.018 (32) | -0.028 (7) | -0.104 → -0.077 | — |
-| 3 | 2R target · stop@sweep (base) | 63 | 31.7% | -0.212 | -13.38 | 0.7 | -0.346 (24) | -0.09 (32) | -0.314 (7) | -0.187 → -0.263 | — |
-| 4 | 3R target · stop@gap edge | 133 | 25.6% | -0.114 | -15.22 | 0.86 | -0.268 (47) | -0.152 (44) | 0.097 (42) | -0.171 → 0.007 | — |
-| 5 | 2R · no time exit (hold 6.5h) | 63 | 27.0% | -0.249 | -15.71 | 0.68 | -0.407 (24) | -0.117 (32) | -0.314 (7) | -0.189 → -0.371 | — |
-| 6 | 3R target · stop@sweep | 63 | 25.4% | -0.271 | -17.1 | 0.65 | -0.401 (24) | 0.023 (32) | -1.171 (7) | -0.109 → -0.597 | — |
-| 7 | 1.5R target · stop@sweep | 63 | 33.3% | -0.308 | -19.38 | 0.56 | -0.429 (24) | -0.184 (32) | -0.457 (7) | -0.27 → -0.382 | — |
-| 8 | 1.5R target · stop@gap edge | 133 | 39.1% | -0.151 | -20.03 | 0.78 | -0.268 (47) | -0.273 (44) | 0.109 (42) | -0.191 → -0.064 | — |
-| 9 | FADE the setup (take opposite side) | 63 | 23.8% | -0.452 | -28.47 | 0.43 | -0.401 (24) | -0.426 (32) | -0.743 (7) | -0.512 → -0.331 | — |
-| 10 | 2R target · stop@gap edge | 133 | 30.1% | -0.226 | -30.03 | 0.72 | -0.417 (47) | -0.238 (44) | 0.002 (42) | -0.267 → -0.136 | — |
-| 11 | 1R target · stop@gap edge | 133 | 41.4% | -0.301 | -40.03 | 0.55 | -0.439 (47) | -0.352 (44) | -0.093 (42) | -0.333 → -0.231 | — |
+| 1 | 2R · breakeven stop after +1R | 65 | 27.7% | -0.074 | -4.78 | 0.86 | -0.263 (25) | 0.06 (33) | -0.028 (7) | 0.028 → -0.286 | — |
+| 2 | 1R target · stop@sweep | 65 | 47.7% | -0.1 | -6.48 | 0.81 | -0.223 (25) | -0.022 (33) | -0.028 (7) | -0.056 → -0.191 | — |
+| 3 | 2R target · stop@sweep (base) | 65 | 30.8% | -0.213 | -13.87 | 0.69 | -0.346 (25) | -0.091 (33) | -0.314 (7) | -0.09 → -0.472 | — |
+| 4 | 2R · no time exit (hold 6.5h) | 65 | 26.2% | -0.249 | -16.2 | 0.67 | -0.405 (25) | -0.118 (33) | -0.314 (7) | -0.091 → -0.58 | — |
+| 5 | 3R target · stop@sweep | 65 | 24.6% | -0.271 | -17.59 | 0.65 | -0.399 (25) | 0.018 (33) | -1.171 (7) | -0.061 → -0.71 | — |
+| 6 | 3R target · stop@gap edge | 137 | 24.8% | -0.143 | -19.58 | 0.83 | -0.3 (49) | -0.175 (45) | 0.07 (43) | -0.083 → -0.278 | — |
+| 7 | 1.5R target · stop@sweep | 65 | 32.3% | -0.306 | -19.87 | 0.56 | -0.426 (25) | -0.182 (33) | -0.457 (7) | -0.192 → -0.544 | — |
+| 8 | 1.5R target · stop@gap edge | 137 | 38.0% | -0.178 | -24.39 | 0.75 | -0.3 (49) | -0.293 (45) | 0.081 (43) | -0.149 → -0.243 | — |
+| 9 | FADE the setup (take opposite side) | 65 | 26.2% | -0.431 | -28.03 | 0.44 | -0.372 (25) | -0.41 (33) | -0.743 (7) | -0.537 → -0.211 | — |
+| 10 | 2R target · stop@gap edge | 137 | 29.2% | -0.251 | -34.39 | 0.69 | -0.443 (49) | -0.26 (45) | -0.023 (43) | -0.207 → -0.35 | — |
+| 11 | 1R target · stop@gap edge | 137 | 40.1% | -0.324 | -44.39 | 0.53 | -0.463 (49) | -0.371 (45) | -0.116 (43) | -0.302 → -0.374 | — |
 
 ## Oil Lab — a Silver Bullet restructured for CL
 
@@ -71,11 +71,11 @@ Crude oil's liquidity clock differs from equity indices, so the same sweep→FVG
 |---|---|---|---|---|---|---|---|---|
 | 1 | EIA 10:30-11:30a · 2R | 1 | 100.0% | 1.933 | 1.93 | ∞ | None → 1.933 | — |
 | 2 | EIA 10:30-11:30a · 1R | 1 | 100.0% | 0.933 | 0.93 | ∞ | None → 0.933 | — |
-| 3 | Pre-settle 1:30-2:30p · 1R | 2 | 50.0% | -0.127 | -0.25 | 0.78 | 0.889 → -1.143 | — |
-| 4 | Brent/London 3-4a · 1R | 2 | 50.0% | -0.281 | -0.56 | 0.63 | -1.5 → 0.938 | — |
+| 3 | Brent/London 3-4a · 1R | 2 | 50.0% | -0.281 | -0.56 | 0.63 | -1.5 → 0.938 | — |
+| 4 | Pre-settle 1:30-2:30p · 1R | 3 | 33.3% | -0.444 | -1.33 | 0.4 | -0.127 → -1.077 | — |
 | 5 | Midday 12-1p · 1R | 3 | 33.3% | -0.514 | -1.54 | 0.37 | -1.225 → 0.909 | — |
-| 6 | Pre-settle 1:30-2:30p · 2R | 2 | 0.0% | -1.127 | -2.25 | 0.0 | -1.111 → -1.143 | — |
-| 7 | Brent/London 3-4a · 2R | 2 | 0.0% | -1.281 | -2.56 | 0.0 | -1.5 → -1.062 | — |
+| 6 | Brent/London 3-4a · 2R | 2 | 0.0% | -1.281 | -2.56 | 0.0 | -1.5 → -1.062 | — |
+| 7 | Pre-settle 1:30-2:30p · 2R | 3 | 0.0% | -1.11 | -3.33 | 0.0 | -1.127 → -1.077 | — |
 | 8 | Midday 12-1p · 2R | 3 | 0.0% | -1.18 | -3.54 | 0.0 | -1.225 → -1.091 | — |
 | 9 | NYMEX open 9-10a · 1R | 0 | — | — | — | — | — | — |
 | 10 | NYMEX open 9-10a · 2R | 0 | — | — | — | — | — | — |
@@ -84,6 +84,7 @@ Crude oil's liquidity clock differs from equity indices, so the same sweep→FVG
 
 | Date | Window | Dir | Entry | Risk (pts) | Exit | P&L |
 |---|---|---|---|---|---|---|
+| 2026-09-02 | PM 2-3pm | bear | 29143.5 | 56.5 | time | −$395 |
 | 2026-08-28 | London 3-4am | bear | 29619.0 | 34.75 | time | +$55 |
 | 2026-08-27 | London 3-4am | bear | 29515.0 | 27.5 | stop | −$560 |
 | 2026-08-20 | London 3-4am | bear | 29643.25 | 34.25 | target | +$1,360 |
@@ -98,7 +99,6 @@ Crude oil's liquidity clock differs from equity indices, so the same sweep→FVG
 | 2026-07-31 | London 3-4am | bull | 28509.75 | 60.0 | target | +$2,390 |
 | 2026-07-22 | London 3-4am | bull | 29090.75 | 40.0 | stop | −$810 |
 | 2026-07-21 | PM 2-3pm | bear | 29329.25 | 35.75 | time | +$575 |
-| 2026-07-10 | AM 10-11am | bear | 29911.75 | 25.25 | stop | −$515 |
 
 Full log: [trades.csv](trades.csv) · raw stats: [results.json](results.json) · interactive report: [report.html](report.html) (download to view)
 
