@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-09-15 17:45",
+ "generated_utc": "2026-09-15 21:15",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 18923,
+   "bars": 18963,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-09-15 13:35"
+   "last_ny": "2026-09-15 16:55"
   },
   {
    "contract": "CL",
-   "bars": 18704,
+   "bars": 18744,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-09-15 13:35"
+   "last_ny": "2026-09-15 16:55"
   },
   {
    "contract": "ES",
-   "bars": 18648,
+   "bars": 18688,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-09-15 13:35"
+   "last_ny": "2026-09-15 16:55"
   }
  ],
  "overall": {
@@ -2200,6 +2200,18 @@
    "robust": false
   },
   {
+   "id": "cl-810-1",
+   "label": "Pre-settle 1:30-2:30p \u00b7 1R",
+   "n": 4,
+   "win_rate": 50.0,
+   "avg_r": -0.103,
+   "total_r": -0.41,
+   "pf": 0.81,
+   "is_avg_r": -0.127,
+   "oos_avg_r": -0.08,
+   "robust": false
+  },
+  {
    "id": "cl-540-1",
    "label": "NYMEX open 9-10a \u00b7 1R",
    "n": 1,
@@ -2221,18 +2233,6 @@
    "pf": 0.0,
    "is_avg_r": null,
    "oos_avg_r": -1.083,
-   "robust": false
-  },
-  {
-   "id": "cl-810-1",
-   "label": "Pre-settle 1:30-2:30p \u00b7 1R",
-   "n": 3,
-   "win_rate": 33.3,
-   "avg_r": -0.444,
-   "total_r": -1.33,
-   "pf": 0.4,
-   "is_avg_r": -0.127,
-   "oos_avg_r": -1.077,
    "robust": false
   },
   {
@@ -2260,18 +2260,6 @@
    "robust": false
   },
   {
-   "id": "cl-810-2",
-   "label": "Pre-settle 1:30-2:30p \u00b7 2R",
-   "n": 3,
-   "win_rate": 0.0,
-   "avg_r": -1.11,
-   "total_r": -3.33,
-   "pf": 0.0,
-   "is_avg_r": -1.127,
-   "oos_avg_r": -1.077,
-   "robust": false
-  },
-  {
    "id": "cl-720-2",
    "label": "Midday 12-1p \u00b7 2R",
    "n": 3,
@@ -2293,6 +2281,18 @@
    "pf": 0.0,
    "is_avg_r": -1.281,
    "oos_avg_r": -1.059,
+   "robust": false
+  },
+  {
+   "id": "cl-810-2",
+   "label": "Pre-settle 1:30-2:30p \u00b7 2R",
+   "n": 4,
+   "win_rate": 0.0,
+   "avg_r": -1.103,
+   "total_r": -4.41,
+   "pf": 0.0,
+   "is_avg_r": -1.127,
+   "oos_avg_r": -1.08,
    "robust": false
   }
  ],
@@ -5038,6 +5038,30 @@
      "r": -1.0,
      "r_net": -1.083,
      "dollars": -130.0
+    },
+    {
+     "market": "CL",
+     "contract": "CL",
+     "day": "2026-09-15",
+     "window": "Pre-settle 1:30-2:30p",
+     "bias": "bear",
+     "sweep_time": "2026-09-15 13:10",
+     "sweep_px": 106.55,
+     "fvg_time": "2026-09-15 13:40",
+     "gap_far": 106.47,
+     "gap_near": 106.44,
+     "entry_time": "2026-09-15 13:45",
+     "exit_time": "2026-09-15 13:50",
+     "entry": 106.44,
+     "stop": 106.44,
+     "target": 106.2,
+     "risk_pts": 0.12,
+     "outcome": "breakeven",
+     "exit": 106.44,
+     "pts": 0.0,
+     "r": 0.0,
+     "r_net": -0.083,
+     "dollars": -10.0
     }
    ],
    "ES": [
