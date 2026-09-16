@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-09-16 09:52",
+ "generated_utc": "2026-09-16 14:53",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 19103,
+   "bars": 19163,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-09-16 05:40"
+   "last_ny": "2026-09-16 10:40"
   },
   {
    "contract": "CL",
-   "bars": 18885,
+   "bars": 18945,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-09-16 05:40"
+   "last_ny": "2026-09-16 10:40"
   },
   {
    "contract": "ES",
-   "bars": 18828,
+   "bars": 18888,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-09-16 05:40"
+   "last_ny": "2026-09-16 10:40"
   }
  ],
  "overall": {
@@ -2020,13 +2020,13 @@
    "label": "3R target \u00b7 stop@sweep",
    "n": 74,
    "win_rate": 24.3,
-   "avg_r": -0.277,
-   "total_r": -20.53,
-   "pf": 0.65,
+   "avg_r": -0.279,
+   "total_r": -20.61,
+   "pf": 0.64,
    "per_market": {
     "NQ": {
      "n": 29,
-     "avg_r": -0.347
+     "avg_r": -0.35
     },
     "CL": {
      "n": 8,
@@ -2038,7 +2038,7 @@
     }
    },
    "is_avg_r": -0.192,
-   "oos_avg_r": -0.456,
+   "oos_avg_r": -0.46,
    "robust": false
   },
   {
