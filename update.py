@@ -69,16 +69,103 @@ MARKETS = {
 }
 MARKETS_INBOX = "/tmp/sb_markets"   # fetch_yahoo.py drops extra-market CSVs here
 
-# "NEW" spec per market (from the Aug-2026 parameter analysis): right
-# windows for each market + breakeven management. Old spec = base rules.
+# "NEW" spec per market — v3, re-selected 2026-09-19 from the full-history
+# grid scan (legs = window set + management). v2 (ES London+AM, breakeven)
+# FAILED its forward test: -5.4R over 7 trades in the month after selection —
+# documented proof of selection bias. v3 carries the same risk; its forward
+# record here is the only verdict that counts. CL has no profitable
+# configuration in the data, so v3 does not trade CL at all.
 NEW_SPECS = {
-    "NQ": {"windows": [("London 3-4am", 180), ("AM 10-11am", 600)],
-           "variant": {"target_r": 2.0, "stop_mode": "sweep", "breakeven": True}},
-    "ES": {"windows": [("London 3-4am", 180), ("AM 10-11am", 600)],
-           "variant": {"target_r": 2.0, "stop_mode": "sweep", "breakeven": True}},
-    "CL": {"windows": [("NYMEX open 9-10a", 540), ("Pre-settle 1:30-2:30p", 810)],
-           "variant": {"target_r": 2.0, "stop_mode": "sweep", "breakeven": True}},
+    "NQ": [{"windows": [("Midday 12-1p", 720)],
+            "variant": {"target_r": 1.0, "stop_mode": "sweep"}}],
+    "ES": [{"windows": [("NYMEX open 9-10a", 540),
+                        ("Pre-settle 1:30-2:30p", 810)],
+            "variant": {"target_r": 1.0, "stop_mode": "sweep"}},
+           {"windows": [("London 3-4am", 180)],
+            "variant": {"target_r": 2.0, "stop_mode": "sweep"}}],
+    "CL": [],
 }
+V3_LABEL = ("NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R "
+            "& London·2R · CL not traded")
+
+# ---- Walk-forward validation ----
+# Every WF_STEP_DAYS, re-select the best specs using ONLY data before the
+# selection date (n>=8, positive total & avg R), then score the NEXT period's
+# trades. No hindsight anywhere. This is the honest simulation of "keep
+# re-optimizing and trading the winner" — the strategy v2 and v3 embody.
+WF_STEP_DAYS = 14
+WF_MIN_HISTORY_DAYS = 30
+WF_MAX_PICKS = 4
+WF_SCAN_WINDOWS = [("London 3-4am", 180), ("AM 10-11am", 600),
+                   ("PM 2-3pm", 840), ("NYMEX open 9-10a", 540),
+                   ("Midday 12-1p", 720), ("Pre-settle 1:30-2:30p", 810)]
+
+
+def run_walk_forward(market_bars):
+    from datetime import date, timedelta as td
+    cells = []
+    for m, mb in market_bars.items():
+        for wname, wmin in WF_SCAN_WINDOWS:
+            for tgt in (1.0, 2.0):
+                for be in (False, True):
+                    if be and tgt == 1.0:
+                        continue   # BE arms at +1R = the target; identical cell
+                    tr = run_backtest(
+                        mb, m, market=m,
+                        variant={"target_r": tgt, "stop_mode": "sweep",
+                                 "breakeven": be},
+                        windows=[(wname, wmin)])
+                    if not tr:
+                        continue
+                    tr.sort(key=lambda t: (t["day"], t["entry_time"]))
+                    cells.append({"id": f"{m}·{wname}·{tgt:g}R"
+                                        + ("·BE" if be else ""),
+                                  "trades": tr})
+    all_days = sorted({t["day"] for c in cells for t in c["trades"]})
+    if not all_days:
+        return {}
+    d0 = date.fromisoformat(all_days[0])
+    dend = date.fromisoformat(all_days[-1])
+    sel = d0 + td(days=WF_MIN_HISTORY_DAYS)
+    periods, wf_trades = [], []
+    while sel <= dend:
+        pe = sel + td(days=WF_STEP_DAYS)
+        scored = []
+        for c in cells:
+            hist = [t for t in c["trades"] if t["day"] < sel.isoformat()]
+            if len(hist) >= 8:
+                tot = sum(t["r_net"] for t in hist)
+                if tot > 0 and tot / len(hist) > 0:
+                    scored.append((tot, c["id"], c))
+        scored.sort(key=lambda x: (-x[0], x[1]))
+        picks = [c for _, _, c in scored[:WF_MAX_PICKS]]
+        ptr, seen = [], set()
+        for c in picks:   # rank order; never take the same setup twice
+            for t in c["trades"]:
+                if sel.isoformat() <= t["day"] < pe.isoformat():
+                    key = (t["market"], t["day"], t["window"], t["entry_time"])
+                    if key not in seen:
+                        seen.add(key)
+                        ptr.append(t)
+        ptr.sort(key=lambda t: (t["day"], t["entry_time"]))
+        wf_trades += ptr
+        periods.append({"start": sel.isoformat(),
+                        "picked": [c["id"] for c in picks],
+                        "n": len(ptr),
+                        "r": round(sum(t["r_net"] for t in ptr), 2)})
+        sel = pe
+    cum, curve = 0.0, []
+    for t in wf_trades:
+        cum += t["r_net"]
+        curve.append({"day": t["day"], "cum_r": round(cum, 2)})
+    s = lab_stats(wf_trades)
+    # slippage stress: doubled round-trip costs (r has no costs; r_net has 1x)
+    stress = round(sum(2 * t["r_net"] - t["r"] for t in wf_trades), 2)
+    return {"periods": periods, "curve": curve, "summary": s,
+            "total_r_double_costs": stress,
+            "distinct_specs_picked":
+                len({p for per in periods for p in per["picked"]}),
+            "step_days": WF_STEP_DAYS, "max_picks": WF_MAX_PICKS}
 
 # ---- System Lab: mechanical variants of the Silver Bullet spec ----
 # Every variant runs on every market; scored in cost-adjusted R with an
@@ -332,11 +419,11 @@ def run_system_lab(market_bars):
     return rows
 
 
-def run_retro(market_bars, base_pooled_trades):
-    """OLD (base spec, all markets/windows) vs NEW v2 (ES only, London+AM,
-    breakeven after +1R) — the parameter-analysis fix, tracked retroactively.
-    v2 was selected on historical data (selection bias); its live OOS record
-    accumulating here is the real test."""
+def run_retro(base_pooled_trades, new_pooled_trades):
+    """OLD (base spec, all markets/windows) vs NEW (current re-selected spec).
+    Every NEW spec is selected on historical data (selection bias) — v2's
+    forward failure (-5.4R in the month after its Aug-18 selection) is the
+    documented proof. The forward record accumulating here is the real test."""
     def pack(trades):
         trades = sorted(trades, key=lambda t: (t["day"], t["entry_time"]))
         cum, curve = 0.0, []
@@ -349,16 +436,9 @@ def run_retro(market_bars, base_pooled_trades):
         s["oos_avg_r"] = lab_stats(trades[split:]).get("avg_r")
         s["curve"] = curve
         return s
-    retro = {"old": {"label": "OLD — base spec · all markets · all windows",
-                     **pack(base_pooled_trades)}}
-    if "ES" in market_bars:
-        new = run_backtest(
-            market_bars["ES"], "ES", market="ES",
-            variant={"target_r": 2.0, "stop_mode": "sweep", "breakeven": True},
-            windows=[("London 3-4am", 180), ("AM 10-11am", 600)])
-        retro["new"] = {"label": "NEW v2 — ES only · London+AM · 2R · "
-                                 "breakeven after +1R", **pack(new)}
-    return retro
+    return {"old": {"label": "OLD — base spec · all markets · all windows",
+                    **pack(base_pooled_trades)},
+            "new": {"label": V3_LABEL, **pack(new_pooled_trades)}}
 
 
 def run_oil_lab(cl_bars):
@@ -555,13 +635,16 @@ def make_readme(res, coverage, path):
     if res.get("retro"):
         a("## Old vs New — the retro comparison")
         a("")
-        a("The parameter analysis (Aug 2026) found the base spec's consistent "
-          "failures — the PM window, gap-edge stops, and NQ itself — and "
-          "produced a fixed spec: **v2 = ES only · London+AM windows · 2R "
-          "target · breakeven stop after +1R**. Both are re-run over all "
-          "accumulated history on every update. v2 was *selected* on this "
-          "same history (selection bias), so its edge is overstated here — "
-          "the growing out-of-sample record is the real verdict.")
+        a("**The v2 lesson (read this first):** the Aug-18 'optimized' spec "
+          "(ES · London+AM · breakeven) showed +0.49R/trade at selection — "
+          "then lost **−5.4R over its next 7 live trades**. That is selection "
+          "bias demonstrated with real forward data: the best-looking retro "
+          "spec is mostly luck. **v3** (selected Sep 19 from the full-history "
+          "grid: NQ midday·1R, ES NYMEX-open+pre-settle·1R and London·2R, CL "
+          "not traded — no CL configuration is profitable) carries exactly "
+          "the same risk. Its retro numbers below are overstated by "
+          "construction; only its forward record from Sep 19 onward counts, "
+          "and v2's fate is the base rate for what to expect.")
         a("")
         a("| Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |")
         a("|---|---|---|---|---|---|---|")
@@ -624,6 +707,37 @@ def make_readme(res, coverage, path):
               f"{orow['avg_r']} | {orow['total_r']} | {pf} | "
               f"{orow.get('is_avg_r', '—')} → {orow.get('oos_avg_r', '—')} | "
               f"{'✅' if orow.get('robust') else '—'} |")
+        a("")
+    wf = res.get("walk_forward") or {}
+    if wf.get("summary", {}).get("n"):
+        s = wf["summary"]
+        a("## Walk-Forward Verdict — the honest number")
+        a("")
+        a(f"Simulation of adaptive re-optimization with **zero hindsight**: "
+          f"every {wf['step_days']} days, the top specs (up to "
+          f"{wf['max_picks']}) are re-selected using only data available "
+          f"before that date, then traded blind for the next period. This is "
+          f"what 'keep tuning and trade the winner' — the v2/v3 approach — "
+          f"would actually have earned.")
+        a("")
+        pf = s["pf"] if s.get("pf") is not None else "∞"
+        a(f"| Trades | Win % | Avg R | **Total R** | PF | At 2× costs | Specs churned |")
+        a(f"|---|---|---|---|---|---|---|")
+        a(f"| {s['n']} | {s['win_rate']}% | {s['avg_r']} | **{s['total_r']}** "
+          f"| {pf} | {wf['total_r_double_costs']} | "
+          f"{wf['distinct_specs_picked']} distinct specs |")
+        a("")
+        if (s.get("total_r") or 0) <= 0:
+            a("**Reading:** negative or flat walk-forward means the "
+              "re-optimization process itself has no demonstrated edge — "
+              "each period's 'best' specs did not stay best. High spec churn "
+              "reinforces it: a real edge picks the same specs repeatedly; "
+              "noise picks new ones each time.")
+        else:
+            a("**Reading:** positive walk-forward is a meaningfully stronger "
+              "signal than any retro number — but with this few periods it "
+              "is still fragile. Watch whether it persists and whether the "
+              "picked specs stabilize (low churn) as data accumulates.")
         a("")
     a("## Recent trades")
     a("")
@@ -828,6 +942,17 @@ def main():
         market_bars[m] = mbars
 
     now_utc = datetime.now(ZoneInfo("UTC")).strftime("%Y-%m-%d %H:%M")
+    # v3 "NEW" spec: multi-leg per market (empty list = market not traded)
+    new_map = {}
+    for m in market_bars:
+        legs = NEW_SPECS.get(m, [])
+        tl = []
+        for leg in legs:
+            tl += run_backtest(market_bars[m], m, market=m,
+                               variant=leg["variant"], windows=leg["windows"])
+        tl.sort(key=lambda t: (t["day"], t["entry_time"]))
+        new_map[m] = tl
+
     res = {
         "generated_utc": now_utc,
         "rules_version": RULES_VERSION,
@@ -842,16 +967,12 @@ def main():
         "oil_lab": (run_oil_lab(market_bars["CL"])
                     if "CL" in market_bars else []),
         "retro": run_retro(
-            market_bars,
-            trades + [t for mtr in market_trades.values() for t in mtr]),
+            trades + [t for mtr in market_trades.values() for t in mtr],
+            [t for tl in new_map.values() for t in tl]),
+        "walk_forward": run_walk_forward(market_bars),
         "spec_trades": {
             "old": {"NQ": trades, **market_trades},
-            "new": {m: sorted(
-                        run_backtest(market_bars[m], m, market=m,
-                                     variant=NEW_SPECS[m]["variant"],
-                                     windows=NEW_SPECS[m]["windows"]),
-                        key=lambda t: (t["day"], t["entry_time"]))
-                    for m in market_bars if m in NEW_SPECS},
+            "new": new_map,
         },
     }
 

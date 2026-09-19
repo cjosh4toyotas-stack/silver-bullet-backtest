@@ -161,6 +161,12 @@
         <span style="font-weight:400;text-transform:none;letter-spacing:0" id="blotCount"></span></div>
       <div id="blotterWrap"><table id="blotter"></table></div>
       <div id="labWrap" style="display:none;overflow-y:auto;flex:1">
+        <div class="subhead" id="wfHead" style="display:none">Walk-Forward Verdict — re-picked every 2 weeks, zero hindsight</div>
+        <div id="wfBox" style="display:none;padding:4px 12px 0">
+          <svg id="wfChart" viewBox="0 0 900 170" width="100%"></svg>
+          <div id="wfSummary" class="sub" style="margin:4px 0 8px"></div>
+          <table id="wfTable" style="margin:0 0 10px"></table>
+        </div>
         <div class="subhead" id="retroHead" style="display:none">Old vs New — retro, cumulative R per trade</div>
         <div id="retroBox" style="display:none;padding:4px 12px 0">
           <svg id="retroChart" viewBox="0 0 900 190" width="100%"></svg>
@@ -211,9 +217,11 @@ const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fm = d => (d >= 0 ? "+$" : "−$") + Math.abs(Math.round(d)).toLocaleString();
 function winList() {   // shaded bands follow the selected spec+market (NY minutes)
-  if (state.spec === "new")
-    return state.market === "CL" ? [[540, 600], [810, 870]]
-                                 : [[180, 240], [600, 660]];
+  if (state.spec === "new") {
+    if (state.market === "CL") return [];
+    if (state.market === "NQ") return [[720, 780]];
+    return [[180, 240], [540, 600], [810, 870]];   // ES v3 windows
+  }
   return [[180, 240], [600, 660], [840, 900]];
 }
 
@@ -224,9 +232,9 @@ const RANGES = { "1D": { days: 1, bin: 5, lbl: "5 min" },
                  "ALL": { days: 9999, bin: 240, lbl: "4 hour" } };
 const SPEC_LABELS = {
   old: "OLD — base spec (all 3 equity windows, 2R, sweep stop)",
-  new: { NQ: "NEW — London+AM only · 2R · breakeven",
-         ES: "NEW v2 — London+AM only · 2R · breakeven",
-         CL: "NEW — NYMEX open + pre-settle · 2R · breakeven" },
+  new: { NQ: "NEW v3 — Midday 12–1 only · 1R target",
+         ES: "NEW v3 — NYMEX open + pre-settle · 1R · London · 2R",
+         CL: "NEW v3 — CL not traded (no profitable configuration in data)" },
 };
 
 function keyFor(market) {
@@ -305,6 +313,7 @@ function boot(keepDay) {
   buildWindows();
   buildLab();
   buildRetro();
+  buildWF();
   drawChart();
 }
 document.querySelectorAll("#mktTabs .tab").forEach(t => t.onclick = () => {
@@ -426,6 +435,49 @@ function buildWindows() {
         `<tr><td>${m.market}</td><td class="r">0</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>`
       ).join("") + "</tbody>";
   }
+}
+
+/* ===== walk-forward ===== */
+function buildWF() {
+  const wf = PAYLOAD.results.walk_forward;
+  if (!wf || !wf.summary || !wf.summary.n) return;
+  $("wfHead").style.display = "";
+  $("wfBox").style.display = "";
+  const W = 900, H = 170, m = { t: 12, r: 110, b: 20, l: 46 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const vals = wf.curve.map(p => p.cum_r);
+  let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  const span = Math.max(hi - lo, 1); lo -= span * .08; hi += span * .08;
+  const X = i => m.l + iw * (i / Math.max(wf.curve.length, 1));
+  const Y = v => m.t + ih * (1 - (v - lo) / (hi - lo));
+  let svg = `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(0)}" y2="${Y(0)}"
+    stroke="${css('--baseline')}" stroke-width="1"/>
+    <text x="${m.l - 6}" y="${Y(0) + 4}" text-anchor="end" font-size="10"
+    fill="${css('--ink-muted')}">0R</text>`;
+  const pts = [[X(0), Y(0)]].concat(wf.curve.map((p, i) => [X(i + 1), Y(p.cum_r)]));
+  const endv = vals.length ? vals[vals.length - 1] : 0;
+  const col = endv >= 0 ? css("--pos") : css("--neg");
+  svg += `<polyline points="${pts.map(p => p.join(",")).join(" ")}" fill="none"
+    stroke="${col}" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="${pts[pts.length - 1][0]}" cy="${pts[pts.length - 1][1]}" r="3.5" fill="${col}"/>
+    <text x="${pts[pts.length - 1][0] + 7}" y="${pts[pts.length - 1][1] + 4}"
+    font-size="11" font-weight="600" fill="${col}">${endv > 0 ? "+" : ""}${endv}R</text>`;
+  $("wfChart").innerHTML = svg;
+  const s = wf.summary;
+  $("wfSummary").innerHTML =
+    `${s.n} trades · ${s.win_rate}% wins · avg ${s.avg_r}R · ` +
+    `<b class="${s.total_r >= 0 ? 'up' : 'dn'}">total ${s.total_r > 0 ? "+" : ""}${s.total_r}R</b> · ` +
+    `PF ${s.pf == null ? "∞" : s.pf} · at 2× costs ${wf.total_r_double_costs}R · ` +
+    `${wf.distinct_specs_picked} distinct specs churned. ` +
+    `A real edge re-picks the same specs; noise picks new ones each period.`;
+  $("wfTable").innerHTML =
+    `<thead><tr><th>Period start</th><th>Specs picked (top ${wf.max_picks})</th>
+     <th class="r">Trades</th><th class="r">R</th></tr></thead><tbody>` +
+    wf.periods.slice(-8).map(p => `<tr><td>${p.start}</td>
+      <td style="font-size:11px;color:var(--ink-2)">${p.picked.length ? p.picked.join(", ") : "— none qualified —"}</td>
+      <td class="r">${p.n}</td>
+      <td class="r ${p.r >= 0 ? 'up' : 'dn'}">${p.r > 0 ? "+" : ""}${p.r}</td></tr>`).join("")
+    + "</tbody>";
 }
 
 /* ===== old vs new retro ===== */
