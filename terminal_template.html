@@ -157,6 +157,7 @@
       <div class="panel-h">
         <span class="tab sel" id="tabBlotter">Trade blotter</span>
         <span class="tab" id="tabLab">System lab</span>
+        <span class="tab" id="tabJournal">Paper journal</span>
         <div class="spacer"></div>
         <span style="font-weight:400;text-transform:none;letter-spacing:0" id="blotCount"></span></div>
       <div id="blotterWrap"><table id="blotter"></table></div>
@@ -180,6 +181,33 @@
         grid always looks good by luck — trust only ✅ robust rows (positive overall,
         positive out-of-sample, and for the System Lab ≥2 markets), and only if they
         stay robust as data accumulates.</div>
+      </div>
+      <div id="journalWrap" style="display:none;overflow-y:auto;flex:1;padding:10px 12px">
+        <div style="background:var(--page);border:1px solid rgba(57,135,229,.45);border-radius:8px;padding:9px 12px;margin-bottom:9px;font-size:12px;line-height:1.6">
+          <b style="color:var(--accent)">PAPER PLAN — v3 spec (the NEW one, sel. Sep 19)</b><br>
+          <b>ES:</b> NYMEX open 9–10a &amp; pre-settle 1:30–2:30p ET · 1R target — and London 3–4a ET · 2R target · stop 1 tick beyond sweep · limit at gap edge<br>
+          <b>NQ:</b> midday 12–1p ET only · 1R target &nbsp;·&nbsp; <b>CL: do not trade</b> (no profitable configuration)<br>
+          <span style="color:var(--ink-muted)">Walk-forward's most stable pick: ES · NYMEX open · 1R. Micro contracts (MES/MNQ) in the PAPER account only. One trade max per window. If the sweep→FVG→retrace sequence doesn't complete inside the window, there is no trade.</span>
+        </div>
+        <div class="sub" style="margin-bottom:8px"><b>Paper-trading journal.</b>
+          Log every sim fill from your IBKR paper account; the MECH columns show what the
+          mechanical spec did on the same day+window — the gap between your fills and MECH
+          is the slippage/discipline reality no backtest can measure. Saved in this browser;
+          use Export for a permanent CSV.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="jForm">
+          <input id="jDate" type="date" style="width:130px">
+          <select id="jMkt"><option>ES</option><option>NQ</option><option>CL</option></select>
+          <select id="jWin"><option>NYMEX open 9-10a</option><option>Pre-settle 1:30-2:30p</option>
+            <option>London 3-4am</option><option>Midday 12-1p</option><option>AM 10-11am</option><option>PM 2-3pm</option></select>
+          <select id="jSide"><option>LONG</option><option>SHORT</option></select>
+          <input id="jEntry" placeholder="entry fill" style="width:90px">
+          <input id="jExit" placeholder="exit fill" style="width:90px">
+          <input id="jRisk" placeholder="risk pts" style="width:80px">
+          <input id="jNotes" placeholder="notes (missed? slipped? hesitated?)" style="flex:1;min-width:160px">
+          <button class="primary" id="jAdd">Log trade</button>
+          <button id="jExport">Export CSV</button>
+        </div>
+        <table id="jTable"></table>
       </div>
     </div>
 
@@ -578,16 +606,82 @@ function buildLab() {
          <td>${v.robust ? "✅" : "—"}</td></tr>`).join("") + "</tbody>";
   }
 }
-$("tabBlotter").onclick = () => setTab(true);
-$("tabLab").onclick = () => setTab(false);
-function setTab(blot) {
-  $("tabBlotter").classList.toggle("sel", blot);
-  $("tabLab").classList.toggle("sel", !blot);
-  $("blotterWrap").style.display = blot ? "" : "none";
-  $("labWrap").style.display = blot ? "none" : "";
-  $("blotCount").textContent = blot
-    ? (PAYLOAD.results.trades || []).length + " trades"
-    : (PAYLOAD.results.lab || []).length + " variants × all markets";
+/* ===== paper journal (localStorage on this site; not tied to any account) ===== */
+const J_KEY = "sb_paper_journal_v1";
+function jLoad() { try { return JSON.parse(localStorage.getItem(J_KEY) || "[]"); } catch (e) { return []; } }
+function jSave(rows) { try { localStorage.setItem(J_KEY, JSON.stringify(rows)); } catch (e) {} }
+function jMech(row) {
+  const st = PAYLOAD.results.spec_trades || {};
+  for (const spec of ["new", "old"]) {
+    const tr = (st[spec] || {})[row.mkt] || [];
+    const hit = tr.find(t => t.day === row.date && t.window === row.win);
+    if (hit) return hit;
+  }
+  return null;
+}
+function jRender() {
+  const rows = jLoad();
+  const cur = rows.filter(r => true);
+  let html = `<thead><tr><th>Date</th><th>Mkt</th><th>Window</th><th>Side</th>
+    <th class="r">Your entry</th><th class="r">Your exit</th><th class="r">Your R</th>
+    <th class="r">MECH entry</th><th class="r">MECH exit</th><th class="r">MECH R</th>
+    <th>Notes</th><th></th></tr></thead><tbody>`;
+  cur.slice().reverse().forEach((r, ri) => {
+    const i = rows.length - 1 - ri;
+    const risk = parseFloat(r.risk) || 0;
+    const dir = r.side === "LONG" ? 1 : -1;
+    const myR = (risk > 0 && r.entry && r.exit)
+      ? ((dir * (parseFloat(r.exit) - parseFloat(r.entry))) / risk).toFixed(2) : "—";
+    const m = jMech(r);
+    html += `<tr><td>${r.date}</td><td>${r.mkt}</td><td>${r.win}</td>
+      <td class="${r.side === 'LONG' ? 'up' : 'dn'}">${r.side}</td>
+      <td class="r">${r.entry || "—"}</td><td class="r">${r.exit || "—"}</td>
+      <td class="r ${parseFloat(myR) >= 0 ? 'up' : 'dn'}">${myR}</td>
+      <td class="r">${m ? m.entry : "no mech trade"}</td>
+      <td class="r">${m ? m.exit : "—"}</td>
+      <td class="r ${m && m.r_net >= 0 ? 'up' : 'dn'}">${m ? m.r_net : "—"}</td>
+      <td style="color:var(--ink-2);font-size:11px">${(r.notes || "").slice(0, 60)}</td>
+      <td><span class="tab" data-del="${i}">✕</span></td></tr>`;
+  });
+  html += "</tbody>";
+  $("jTable").innerHTML = html;
+  $("jTable").querySelectorAll("[data-del]").forEach(el => el.onclick = () => {
+    const rows2 = jLoad(); rows2.splice(+el.dataset.del, 1); jSave(rows2); jRender();
+  });
+}
+$("jAdd").onclick = () => {
+  const row = { date: $("jDate").value, mkt: $("jMkt").value, win: $("jWin").value,
+    side: $("jSide").value, entry: $("jEntry").value.trim(),
+    exit: $("jExit").value.trim(), risk: $("jRisk").value.trim(),
+    notes: $("jNotes").value.trim() };
+  if (!row.date) { alert("Pick the trade date"); return; }
+  const rows = jLoad(); rows.push(row); jSave(rows); jRender();
+  $("jEntry").value = $("jExit").value = $("jRisk").value = $("jNotes").value = "";
+};
+$("jExport").onclick = () => {
+  const rows = jLoad();
+  const head = "date,market,window,side,entry,exit,risk_pts,notes\n";
+  const body = rows.map(r => [r.date, r.mkt, r.win, r.side, r.entry, r.exit, r.risk,
+    '"' + (r.notes || "").replace(/"/g, "'") + '"'].join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([head + body], { type: "text/csv" }));
+  a.download = "paper_journal.csv"; a.click();
+};
+$("tabBlotter").onclick = () => setTab("blotter");
+$("tabLab").onclick = () => setTab("lab");
+$("tabJournal").onclick = () => setTab("journal");
+function setTab(which) {
+  $("tabBlotter").classList.toggle("sel", which === "blotter");
+  $("tabLab").classList.toggle("sel", which === "lab");
+  $("tabJournal").classList.toggle("sel", which === "journal");
+  $("blotterWrap").style.display = which === "blotter" ? "" : "none";
+  $("labWrap").style.display = which === "lab" ? "" : "none";
+  $("journalWrap").style.display = which === "journal" ? "" : "none";
+  if (which === "journal") { jRender(); if (!$("jDate").value) $("jDate").valueAsDate = new Date(); }
+  $("blotCount").textContent = which === "blotter"
+    ? `${state.market} · ${state.spec.toUpperCase()} · ${(curTrades() || []).length} trades`
+    : which === "lab" ? (PAYLOAD.results.lab || []).length + " variants × all markets"
+    : jLoad().length + " journal entries";
 }
 
 /* ===== candlestick chart ===== */
