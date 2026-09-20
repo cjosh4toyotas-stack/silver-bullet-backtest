@@ -64,6 +64,27 @@ logged signals against the site's blotter before letting it place orders.
   (`MAX_DAILY_LOSS`).
 - **Position cap**: $400k notional per trade (`MAX_POSITION_VALUE`).
 
+## Cloud mode (no laptop needed)
+
+`.github/workflows/paper_bot.yml` runs this same bot on GitHub's servers:
+for each trading block a job wakes up, sleeps until the block starts, boots
+a headless IB Gateway (ghcr.io/gnzsnz/ib-gateway) logged into the paper
+account, runs the bot with `SB_BLOCK` set, flattens at block end, commits
+`data/bot_journal.csv` back to the repo, and shuts down.
+
+Setup: add two repository secrets under GitHub → Settings → Secrets and
+variables → Actions: `IBKR_PAPER_USER` and `IBKR_PAPER_PASSWORD` (the paper
+login). Test with Actions → "Paper trading bot" → Run workflow → pick a
+block, dry run = true.
+
+Blocks (ET): london 2:25a–6:10a · morning 8:25a–11:28a · afternoon
+11:29a–4:35p. Each has two UTC crons so DST transitions are covered;
+`bot/block_gate.py` picks the right twin. Known trade-offs: a NYMEX-open
+trade filled after ~9:30a has its 2h hold clipped at 11:28a; GitHub cron
+can fire late (usually still inside the pre-start sleep margin); while a
+cloud block is live, logging into the paper portal yourself will bump the
+Gateway session for a few minutes.
+
 ## Caveats
 
 - **Your Mac must be awake** with Gateway running, or a window simply doesn't

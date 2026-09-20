@@ -72,6 +72,15 @@ LEGS = [
 ]
 PROXY_OF = {"SPY": "ES", "QQQ": "NQ"}
 
+# Cloud "block" mode: GitHub Actions runs one block per job. SB_BLOCK env
+# selects the legs and sets a hard end-of-block flatten. (minutes after NY
+# midnight: start, end, window names)
+BLOCKS = {
+    "london":    (145, 370, ["London 3-4a"]),
+    "morning":   (505, 688, ["NYMEX open 9-10a"]),
+    "afternoon": (689, 995, ["Midday 12-1p", "Pre-settle 1:30-2:30p"]),
+}
+
 # ---------------- detection (ported verbatim from update.py) ----------------
 
 def find_sweep(bars, i0, i1):
@@ -262,6 +271,20 @@ def place_bracket(ib, contract, setup, target_r):
 
 def main():
     dry = "--dry-run" in sys.argv
+    block = os.environ.get("SB_BLOCK", "").strip().lower() or None
+    legs = LEGS
+    block_end = None
+    if block:
+        if block not in BLOCKS:
+            sys.exit(f"Unknown SB_BLOCK {block!r}; use one of {sorted(BLOCKS)}")
+        b0, b1, wnames = BLOCKS[block]
+        legs = [l for l in LEGS if l[1] in wnames]
+        now = datetime.now(NY)
+        block_end = (datetime(now.year, now.month, now.day, tzinfo=NY)
+                     + timedelta(minutes=b1))
+        if now >= block_end:
+            log(f"Block {block} already over — nothing to do.")
+            return
     ib = IB()
     for port in PAPER_PORTS:
         try:
@@ -279,10 +302,12 @@ def main():
         sys.exit(f"SAFETY STOP: non-paper account detected ({accounts}). "
                  "This bot only ever runs against DU* paper accounts.")
     log(f"Connected. Paper account(s): {accounts}. "
-        f"Mode: {'DRY RUN — no orders' if dry else 'LIVE PAPER'}")
+        f"Mode: {'DRY RUN — no orders' if dry else 'LIVE PAPER'}"
+        + (f". Block: {block} (ends {block_end:%H:%M} ET)" if block else ""))
+    ib.reqMarketDataType(1)
 
     contracts = {}
-    for sym in {l[0] for l in LEGS}:
+    for sym in {l[0] for l in legs}:
         c = Stock(sym, "SMART", "USD", primaryExchange="ARCA")
         ib.qualifyContracts(c)
         contracts[sym] = c
@@ -299,6 +324,12 @@ def main():
             break
         now = datetime.now(NY)
         today = now.date()
+
+        if block_end and now >= block_end:
+            log(f"Block {block} over — flattening and exiting.")
+            if not dry:
+                flatten_all(ib)
+            break
 
         # daily loss cutoff
         if not dry and halted_day != today:
@@ -344,7 +375,7 @@ def main():
 
         # scan active windows
         if halted_day != today:
-            for sym, wname, wmin, target_r in LEGS:
+            for sym, wname, wmin, target_r in legs:
                 key = (str(today), wname)
                 if key in done:
                     continue
@@ -379,6 +410,17 @@ def main():
                     placed.update({"symbol": sym, "window": wname,
                                    "wclose": wclose, "fill_time": None})
                     open_mgmt.append(placed)
+
+        # cloud mode: leave early once every window is closed and nothing is open
+        if block and not open_mgmt:
+            last_close = max(
+                datetime(today.year, today.month, today.day, tzinfo=NY)
+                + timedelta(minutes=wmin + 60) for _, _, wmin, _ in legs)
+            if now > last_close and not any(
+                    p.position for p in ib.positions()
+                    if p.contract.symbol in contracts):
+                log(f"Block {block}: all windows closed, nothing open — done.")
+                break
 
         ib.sleep(POLL_SECONDS)
 
