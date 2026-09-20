@@ -246,10 +246,10 @@ function renderTable(rows){
     return `<tr class="${sig?"sig":""}">
       <td>${r.date}</td><td>${r.window}</td>
       <td>${r.market} <span style="color:var(--ink-muted)">(${r.proxy})</span></td>
-      <td>${r.bias==="bull"?"LONG":"SHORT"}</td>
+      <td>${r.bias==="bull"?"LONG":(r.bias==="bear"?"SHORT":"—")}</td>
       <td class="num">${r.qty||"—"}</td>
       <td class="num">${r.entry}</td><td class="num">${r.exit||"—"}</td>
-      <td>${sig?"signal · order placed":r.outcome}</td>
+      <td>${sig?"signal · order placed":(r.outcome==="halted"?"⛔ breaker halt ("+r.window+")":r.outcome)}</td>
       <td class="num">${r.pts||"—"}</td><td class="num">${r.r||"—"}</td>
       <td class="num ${isNaN(d)?"":cls(d)}">${isNaN(d)?"—":fmt$(d)}</td></tr>`;
   }).join("");

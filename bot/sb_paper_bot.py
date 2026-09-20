@@ -52,6 +52,19 @@ RISK_DOLLARS = 1000.0             # $ risked per trade (0.1% of the $1M sim acco
 MAX_DAILY_LOSS = 2000.0           # stop trading for the day at -$2,000 realized
 WEEK_LOSS_HALT = 5000.0           # circuit breaker: halt if last 7 days <= -$5,000
 TOTAL_LOSS_HALT = 10000.0         # circuit breaker: halt if all-time <= -$10,000
+
+# Tiered drawdown breakers (fire on actual P&L, % of account equity):
+#   daily DD > 2%  -> all position sizes cut 50% for the rest of the day
+#   daily DD > 3%  -> close ALL, halt rest of day
+#   weekly DD > 5% -> sizes cut 50% for the rest of the ISO week
+#   weekly DD > 7% -> close ALL, halt rest of week
+#   peak DD > 10%  -> halt ALL trading; a "halted" row is written to the
+#                     journal and trading stays halted until that row is
+#                     manually deleted from data/bot_journal.csv
+DAILY_DD_REDUCE, DAILY_DD_HALT = 0.02, 0.03
+WEEK_DD_REDUCE, WEEK_DD_HALT = 0.05, 0.07
+PEAK_DD_HALT = 0.10
+MAX_RISK_PCT = 0.01               # hard cap: risk per trade <= 1% of equity
 MAX_POSITION_VALUE = 400_000.0    # sanity cap on notional per trade
 POLL_SECONDS = 20
 KILL_FILE = os.path.join(HERE, "STOP")
@@ -187,11 +200,8 @@ def record_close(m, entry_px, exit_px, outcome):
         f"({r:+.2f}R, ${dollars:+.0f})")
 
 
-def circuit_breaker_reason():
-    """Cumulative kill switch: reads the full journal history (local + the
-    repo copy that cloud runs commit) and halts on sustained losses. Trips
-    without any manual monitoring; resets only by editing the limits or the
-    journal, which is deliberate."""
+def journal_rows():
+    """All journal rows, local + the repo copy cloud runs commit, deduped."""
     rows, seen = [], set()
     repo_journal = os.path.join(os.path.dirname(HERE), "data", "bot_journal.csv")
     for p in (JOURNAL, repo_journal):
@@ -202,17 +212,84 @@ def circuit_breaker_reason():
                     if key not in seen:
                         seen.add(key)
                         rows.append(r)
+    return rows
 
-    def dollars(r):
+
+def _dollars(r):
+    try:
+        return float(r.get("dollars") or 0)
+    except ValueError:
+        return 0.0
+
+
+def log_breaker(kind, detail, equity, closed_positions, halt_row=False):
+    """Log every trigger: breaker type, actual DD, equity, positions closed."""
+    log(f"BREAKER {kind}: {detail} · equity ${equity:,.0f} · "
+        f"positions closed: {closed_positions}")
+    if halt_row:
+        # a 'halted' row persists via the journal commit; deleting it from
+        # data/bot_journal.csv is the manual reset the peak breaker requires
+        already = any(r.get("outcome") == "halted" and r.get("window") == kind
+                      for r in journal_rows())
+        if not already:
+            journal_row({"date": str(datetime.now(NY).date()), "proxy": "-",
+                         "market": "-", "window": kind, "bias": "-", "qty": "",
+                         "entry": "", "stop": "", "target": "", "exit": "",
+                         "outcome": "halted", "pts": "", "r": "", "dollars": ""})
+
+
+def risk_state(equity, intraday_pnl=0.0):
+    """Evaluate the tiered breakers. Returns (halt_reason|None, size_factor)."""
+    rows = [r for r in journal_rows() if r.get("outcome") not in
+            (None, "", "signal", "halted")]
+    today = datetime.now(NY).date()
+    iso = today.isocalendar()
+
+    if any(r.get("outcome") == "halted" and str(r.get("window", "")).startswith("PEAK")
+           for r in journal_rows()):
+        return ("PEAK-DD lock present in journal — manual deletion required "
+                "to resume"), 0.0
+
+    day_pnl = sum(_dollars(r) for r in rows if r.get("date") == str(today))
+    day_pnl = min(day_pnl, day_pnl + intraday_pnl)  # include live fills if worse
+    week_pnl = 0.0
+    cum, peak, by_date = 0.0, 0.0, sorted(rows, key=lambda r: r.get("date") or "")
+    for r in by_date:
+        cum += _dollars(r)
+        peak = max(peak, cum)
+        d = r.get("date") or ""
         try:
-            return float(r.get("dollars") or 0)
+            dt = datetime.strptime(d, "%Y-%m-%d").date()
+            if dt.isocalendar()[:2] == iso[:2]:
+                week_pnl += _dollars(r)
         except ValueError:
-            return 0.0
+            pass
+    peak_dd = (peak - cum) / equity if equity else 0.0
+    day_dd = max(0.0, -day_pnl) / equity if equity else 0.0
+    week_dd = max(0.0, -week_pnl) / equity if equity else 0.0
 
-    closed = [r for r in rows if r.get("outcome") not in (None, "", "signal")]
-    total = sum(dollars(r) for r in closed)
+    if peak_dd > PEAK_DD_HALT:
+        return f"peak drawdown {peak_dd*100:.1f}% > {PEAK_DD_HALT*100:.0f}%", 0.0
+    if week_dd > WEEK_DD_HALT:
+        return f"weekly drawdown {week_dd*100:.1f}% > {WEEK_DD_HALT*100:.0f}%", 0.0
+    if day_dd > DAILY_DD_HALT:
+        return f"daily drawdown {day_dd*100:.1f}% > {DAILY_DD_HALT*100:.0f}%", 0.0
+    factor = 1.0
+    if day_dd > DAILY_DD_REDUCE or week_dd > WEEK_DD_REDUCE:
+        factor = 0.5
+    return None, factor
+
+
+def circuit_breaker_reason():
+    """Cumulative kill switch: reads the full journal history (local + the
+    repo copy that cloud runs commit) and halts on sustained losses. Trips
+    without any manual monitoring; resets only by editing the limits or the
+    journal, which is deliberate."""
+    closed = [r for r in journal_rows()
+              if r.get("outcome") not in (None, "", "signal", "halted")]
+    total = sum(_dollars(r) for r in closed)
     cutoff = str((datetime.now(NY) - timedelta(days=7)).date())
-    recent = sum(dollars(r) for r in closed if (r.get("date") or "") >= cutoff)
+    recent = sum(_dollars(r) for r in closed if (r.get("date") or "") >= cutoff)
     if recent <= -WEEK_LOSS_HALT:
         return f"7-day realized PnL ${recent:,.0f} breached -${WEEK_LOSS_HALT:,.0f}"
     if total <= -TOTAL_LOSS_HALT:
@@ -282,11 +359,17 @@ def realized_pnl_today(fills):
     return pnl
 
 
-def place_bracket(ib, contract, setup, target_r):
+def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0, size_factor=1.0):
     risk = setup["risk"]
-    qty = int(RISK_DOLLARS / risk)
+    # every position has a stop by construction (bracket); risk is capped at
+    # the smaller of RISK_DOLLARS and 1% of account equity, then scaled by
+    # any breaker-imposed size reduction
+    risk_budget = min(RISK_DOLLARS, MAX_RISK_PCT * equity) * size_factor
+    qty = int(risk_budget / risk)
+    if size_factor < 1.0:
+        log(f"size reduced x{size_factor} by drawdown breaker")
     if qty < 1:
-        log("qty < 1 — risk too wide for RISK_DOLLARS, skipping")
+        log("qty < 1 — risk too wide for the risk budget, skipping")
         return None
     if qty * setup["entry"] > MAX_POSITION_VALUE:
         qty = int(MAX_POSITION_VALUE / setup["entry"])
@@ -366,6 +449,16 @@ def main():
         + (f". Block: {block} (ends {block_end:%H:%M} ET)" if block else ""))
     ib.reqMarketDataType(1)
 
+    equity = 1_000_000.0
+    try:
+        for row in ib.accountSummary():
+            if row.tag == "NetLiquidation":
+                equity = float(row.value)
+                break
+        log(f"Account equity: ${equity:,.0f}")
+    except Exception as e:
+        log(f"equity fetch failed ({e}) — using ${equity:,.0f}")
+
     contracts = {}
     for sym in {l[0] for l in legs}:
         c = Stock(sym, "SMART", "USD", primaryExchange="ARCA")
@@ -391,14 +484,33 @@ def main():
                 flatten_all(ib)
             break
 
-        # daily loss cutoff
-        if not dry and halted_day != today:
-            pnl = realized_pnl_today([f for f in ib.fills()
-                                      if f.time.astimezone(NY).date() == today])
-            if pnl <= -MAX_DAILY_LOSS:
-                log(f"DAILY LOSS CUTOFF hit ({pnl:.0f}) — flattening, done for today.")
+        # risk layer: fixed daily cutoff + tiered drawdown breakers
+        intraday = 0.0
+        if not dry:
+            intraday = realized_pnl_today([f for f in ib.fills()
+                                           if f.time.astimezone(NY).date() == today])
+            if intraday <= -MAX_DAILY_LOSS and halted_day != today:
+                log(f"DAILY LOSS CUTOFF hit ({intraday:.0f}) — flattening, done for today.")
                 flatten_all(ib)
                 halted_day = today
+        halt_reason, size_factor = risk_state(equity, intraday)
+        if halt_reason:
+            npos = sum(1 for p in ib.positions() if p.position)
+            if not dry:
+                flatten_all(ib)
+            lower = halt_reason.lower()
+            if "peak" in lower:
+                log_breaker("PEAK-DD >10% HALT", halt_reason, equity, npos,
+                            halt_row=not dry)
+                log("Trading halted until the PEAK-DD 'halted' row is manually "
+                    "deleted from data/bot_journal.csv.")
+                break
+            if "week" in lower:
+                log_breaker("WEEK-DD HALT", halt_reason, equity, npos)
+                log("Halted for the rest of the ISO week.")
+                break
+            log_breaker("DAY-DD HALT", halt_reason, equity, npos)
+            halted_day = today
 
         # manage open trades: cancel unfilled at window close, time-exit at 2h
         for m in list(open_mgmt):
@@ -488,7 +600,8 @@ def main():
                     "pts": "", "r": "", "dollars": ""})
                 if dry:
                     continue
-                placed = place_bracket(ib, contracts[sym], setup, target_r)
+                placed = place_bracket(ib, contracts[sym], setup, target_r,
+                                       equity=equity, size_factor=size_factor)
                 if placed:
                     placed.update({"symbol": sym, "window": wname,
                                    "wclose": wclose, "fill_time": None})

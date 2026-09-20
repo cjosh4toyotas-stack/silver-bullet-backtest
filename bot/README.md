@@ -67,6 +67,16 @@ logged signals against the site's blotter before letting it place orders.
   −$5,000 or worse (`WEEK_LOSS_HALT`) or all-time reaches −$10,000
   (`TOTAL_LOSS_HALT`). These do NOT auto-reset — a tripped breaker stays
   tripped until you consciously raise the limit, which is the point.
+- **Tiered drawdown breakers** (fire on actual P&L as % of account equity):
+  daily DD > 2% cuts all sizes 50% for the rest of the day; > 3% closes all
+  and halts the day. Weekly DD > 5% cuts sizes 50%; > 7% closes all and
+  halts the rest of the ISO week. Peak DD > 10% halts ALL trading and writes
+  a `halted` row into the journal — trading stays locked until that row is
+  manually deleted from `data/bot_journal.csv`. Every trigger is logged with
+  breaker type, actual DD, equity, and positions closed.
+- **Position-level rules**: every entry is a bracket, so no position can
+  exist without a stop; risk per trade is capped at the smaller of
+  `RISK_DOLLARS` and 1% of account equity (`MAX_RISK_PCT`).
 - **Position cap**: $400k notional per trade (`MAX_POSITION_VALUE`).
 - **Server-side stops**: every entry is a bracket order, so the stop-loss
   rests at IBKR — it triggers even if the bot or runner dies mid-trade.
