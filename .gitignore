@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+bot/sb_bot.log
+bot/sb_bot_journal.csv
+bot/STOP
