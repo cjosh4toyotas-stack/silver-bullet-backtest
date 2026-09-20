@@ -50,6 +50,8 @@ PAPER_PORTS = [4002, 7497]        # IB Gateway paper, TWS paper. NEVER 4001/7496
 CLIENT_ID = 7
 RISK_DOLLARS = 1000.0             # $ risked per trade (0.1% of the $1M sim account)
 MAX_DAILY_LOSS = 2000.0           # stop trading for the day at -$2,000 realized
+WEEK_LOSS_HALT = 5000.0           # circuit breaker: halt if last 7 days <= -$5,000
+TOTAL_LOSS_HALT = 10000.0         # circuit breaker: halt if all-time <= -$10,000
 MAX_POSITION_VALUE = 400_000.0    # sanity cap on notional per trade
 POLL_SECONDS = 20
 KILL_FILE = os.path.join(HERE, "STOP")
@@ -168,6 +170,56 @@ def journal_row(row):
         w.writerow(row)
 
 
+def record_close(m, entry_px, exit_px, outcome):
+    """Journal a completed trade with realized numbers."""
+    sign = 1 if m["side"] == "BUY" else -1
+    pts = (exit_px - entry_px) * sign
+    dollars = pts * m["qty"]
+    r = pts / m["risk"] if m["risk"] else 0.0
+    journal_row({
+        "date": str(datetime.now(NY).date()), "proxy": m["symbol"],
+        "market": PROXY_OF[m["symbol"]], "window": m["window"],
+        "bias": "bull" if m["side"] == "BUY" else "bear", "qty": m["qty"],
+        "entry": round(entry_px, 2), "stop": "", "target": "",
+        "exit": round(exit_px, 2), "outcome": outcome,
+        "pts": round(pts, 2), "r": round(r, 2), "dollars": round(dollars, 2)})
+    log(f"CLOSED {m['symbol']} {m['window']} {outcome} {pts:+.2f} pts "
+        f"({r:+.2f}R, ${dollars:+.0f})")
+
+
+def circuit_breaker_reason():
+    """Cumulative kill switch: reads the full journal history (local + the
+    repo copy that cloud runs commit) and halts on sustained losses. Trips
+    without any manual monitoring; resets only by editing the limits or the
+    journal, which is deliberate."""
+    rows, seen = [], set()
+    repo_journal = os.path.join(os.path.dirname(HERE), "data", "bot_journal.csv")
+    for p in (JOURNAL, repo_journal):
+        if os.path.exists(p):
+            with open(p) as f:
+                for r in csv.DictReader(f):
+                    key = tuple(sorted(r.items()))
+                    if key not in seen:
+                        seen.add(key)
+                        rows.append(r)
+
+    def dollars(r):
+        try:
+            return float(r.get("dollars") or 0)
+        except ValueError:
+            return 0.0
+
+    closed = [r for r in rows if r.get("outcome") not in (None, "", "signal")]
+    total = sum(dollars(r) for r in closed)
+    cutoff = str((datetime.now(NY) - timedelta(days=7)).date())
+    recent = sum(dollars(r) for r in closed if (r.get("date") or "") >= cutoff)
+    if recent <= -WEEK_LOSS_HALT:
+        return f"7-day realized PnL ${recent:,.0f} breached -${WEEK_LOSS_HALT:,.0f}"
+    if total <= -TOTAL_LOSS_HALT:
+        return f"all-time realized PnL ${total:,.0f} breached -${TOTAL_LOSS_HALT:,.0f}"
+    return None
+
+
 def fetch_bars(ib, contract):
     """Completed 5-min bars for today + yesterday, NY timestamps."""
     raw = ib.reqHistoricalData(
@@ -266,7 +318,8 @@ def place_bracket(ib, contract, setup, target_r):
     log(f"BRACKET {side} {qty} {contract.symbol} @ {setup['entry']} "
         f"stop {setup['stop']} target {setup['target']} ({target_r}R)")
     return {"parent_id": parent.orderId, "qty": qty, "side": side,
-            "tp_id": tp.orderId, "sl_id": sl.orderId}
+            "tp_id": tp.orderId, "sl_id": sl.orderId,
+            "risk": risk, "entry_px": setup["entry"]}
 
 
 def main():
@@ -285,6 +338,13 @@ def main():
         if now >= block_end:
             log(f"Block {block} already over — nothing to do.")
             return
+    reason = circuit_breaker_reason()
+    if reason:
+        log(f"CIRCUIT BREAKER TRIPPED: {reason}. Trading halted — no orders "
+            f"will be placed until the limits in this script are raised or "
+            f"the journal is reviewed. This is deliberate.")
+        return
+
     ib = IB()
     for port in PAPER_PORTS:
         try:
@@ -357,7 +417,29 @@ def main():
             if filled > 0 and m.get("fill_time") is None:
                 m["fill_time"] = now
                 log(f"FILLED {m['symbol']} {m['window']} x{filled}")
-            if m.get("fill_time") and now >= m["fill_time"] + timedelta(minutes=5 * MAX_HOLD):
+            if not m.get("fill_time"):
+                continue
+            entry_px = tr.orderStatus.avgFillPrice or m["entry_px"]
+            # time-exit market order resolving?
+            ct = m.get("closing")
+            if ct is not None:
+                if ct.orderStatus.status == "Filled":
+                    record_close(m, entry_px, ct.orderStatus.avgFillPrice, "time")
+                    open_mgmt.remove(m)
+                continue
+            # closed by the bracket?
+            done_close = False
+            for oid, oc in ((m["tp_id"], "target"), (m["sl_id"], "stop")):
+                t2 = next((t for t in ib.trades()
+                           if t.order.orderId == oid), None)
+                if t2 and t2.orderStatus.status == "Filled":
+                    record_close(m, entry_px, t2.orderStatus.avgFillPrice, oc)
+                    open_mgmt.remove(m)
+                    done_close = True
+                    break
+            if done_close:
+                continue
+            if now >= m["fill_time"] + timedelta(minutes=5 * MAX_HOLD):
                 pos = next((p for p in ib.positions()
                             if p.contract.symbol == m["symbol"] and p.position != 0), None)
                 if pos:
@@ -369,9 +451,10 @@ def main():
                     o = MarketOrder("SELL" if pos.position > 0 else "BUY",
                                     abs(pos.position))
                     o.outsideRth = True
-                    ib.placeOrder(c, o)
+                    m["closing"] = ib.placeOrder(c, o)
                     log(f"TIME EXIT {m['symbol']} {m['window']} after 2h")
-                open_mgmt.remove(m)
+                else:
+                    open_mgmt.remove(m)
 
         # scan active windows
         if halted_day != today:

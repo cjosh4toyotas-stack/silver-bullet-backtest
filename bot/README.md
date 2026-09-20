@@ -62,7 +62,14 @@ logged signals against the site's blotter before letting it place orders.
   at the top of the script.
 - **Daily cutoff**: stops trading and flattens at −$2,000 realized on the day
   (`MAX_DAILY_LOSS`).
+- **Cumulative circuit breakers**: before placing any order the bot reads its
+  full journal history; it refuses to trade at all if the last 7 days are
+  −$5,000 or worse (`WEEK_LOSS_HALT`) or all-time reaches −$10,000
+  (`TOTAL_LOSS_HALT`). These do NOT auto-reset — a tripped breaker stays
+  tripped until you consciously raise the limit, which is the point.
 - **Position cap**: $400k notional per trade (`MAX_POSITION_VALUE`).
+- **Server-side stops**: every entry is a bracket order, so the stop-loss
+  rests at IBKR — it triggers even if the bot or runner dies mid-trade.
 
 ## Cloud mode (no laptop needed)
 
