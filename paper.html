@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Silver Bullet — Paper Account</title>
+<title>Silver Bullet — IBKR</title>
 <style>
   :root {
     color-scheme: dark;
@@ -61,7 +61,7 @@
 </head>
 <body>
 <div class="topbar">
-  <span class="sym">PAPER ACCOUNT <small>DUT146048 · SPY/QQQ proxies · v3 spec</small></span>
+  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v3 spec</small></span>
   <span id="brk" class="badge ok" style="display:none"></span>
   <span class="spacer"></span>
   <span class="updated" id="upd"></span>
@@ -225,12 +225,12 @@ function renderCompare(closed){
     eng={n:et.length, R:et.reduce((a,t)=>a+(t.r_net??t.r??0),0)};
   }
   el.innerHTML =
-    `Bot (paper, ETF proxies): <b style="color:var(--ink-1)">${mine.length} trades · `+
+    `Bot (IBKR, ETF proxies): <b style="color:var(--ink-1)">${mine.length} trades · `+
     `<span class="${cls(mR)}">${(mR>=0?"+":"")+mR.toFixed(2)}R</span></b>`+
     (eng?` &nbsp;·&nbsp; Engine (mechanical, futures data): <b style="color:var(--ink-1)">${eng.n} trades · `+
     `<span class="${cls(eng.R)}">${(eng.R>=0?"+":"")+eng.R.toFixed(2)}R</span></b>`+
     ` &nbsp;·&nbsp; the gap between these two numbers is execution drift + proxy drift — `+
-    `the thing this paper phase exists to measure.`:"");
+    `the thing this phase exists to measure.`:"");
 }
 
 function renderTable(rows){
