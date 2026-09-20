@@ -889,6 +889,21 @@ def main():
             print(f"[update] market {m}: +{add_m} new bars "
                   f"({len(existing)} -> {len(merged)})")
 
+    # ETF proxy bars (SPY/QQQ) — accumulated for the IBKR page's candlestick
+    # view only; kept out of data/markets so they are never backtested
+    proxies_inbox = "/tmp/sb_proxies"
+    if os.path.isdir(proxies_inbox):
+        proxies_dir = os.path.join(DATA_DIR, "proxies")
+        os.makedirs(proxies_dir, exist_ok=True)
+        for p in sorted(glob.glob(os.path.join(proxies_inbox, "*.csv"))):
+            m = os.path.splitext(os.path.basename(p))[0]
+            target = os.path.join(proxies_dir, m + ".csv")
+            existing = read_bars_csv(target) if os.path.exists(target) else []
+            merged, add_m = merge_bars(existing, read_bars_csv(p))
+            write_bars_csv(target, merged)
+            print(f"[update] proxy {m}: +{add_m} new bars "
+                  f"({len(existing)} -> {len(merged)})")
+
     # backtest every contract series
     all_trades, coverage, daily_vol = [], [], {}
     for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.csv"))):

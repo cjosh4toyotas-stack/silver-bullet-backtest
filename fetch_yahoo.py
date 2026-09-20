@@ -18,6 +18,9 @@ OUT = "/tmp/yahoo_bars.csv"
 # Written to /tmp/sb_markets/<MARKET>.csv; update.py auto-ingests that folder.
 EXTRA_MARKETS = {"ES": "ES=F", "CL": "CL=F"}
 MARKETS_DIR = "/tmp/sb_markets"
+PROXIES_DIR = "/tmp/sb_proxies"
+# ETF proxies the paper bot trades — charted on the IBKR page, never backtested
+PROXIES = {"SPY": "SPY", "QQQ": "QQQ"}
 
 
 def frame_to_rows(df):
@@ -90,6 +93,18 @@ def main():
                   f"{rows[0][0]} -> {rows[-1][0]}")
         except Exception as e:      # noqa: BLE001
             print(f"[fetch] WARNING: {market} skipped this run: {e}",
+                  file=sys.stderr)
+
+    # ETF proxies for the IBKR page charts — same warn-only policy
+    os.makedirs(PROXIES_DIR, exist_ok=True)
+    for sym, ticker in PROXIES.items():
+        try:
+            rows, period = fetch_symbol(ticker)
+            write_rows(os.path.join(PROXIES_DIR, sym + ".csv"), rows)
+            print(f"[fetch] {sym}: {len(rows)} bars ({period}) "
+                  f"{rows[0][0]} -> {rows[-1][0]}")
+        except Exception as e:      # noqa: BLE001
+            print(f"[fetch] WARNING: {sym} skipped this run: {e}",
                   file=sys.stderr)
 
 
