@@ -1,0 +1,128 @@
+name: Paper trading bot
+# Runs the Silver Bullet v3 paper bot in the cloud so no laptop is needed.
+# Each trading block gets two UTC crons (EDT + EST twins); bot/block_gate.py
+# lets exactly one twin claim each day and sleeps until the block starts.
+# Requires repo secrets IBKR_PAPER_USER and IBKR_PAPER_PASSWORD (paper login).
+
+on:
+  schedule:
+    - cron: "45 5 * * 1-5"    # london    (EDT twin)
+    - cron: "45 6 * * 1-5"    # london    (EST twin)
+    - cron: "45 11 * * 1-5"   # morning   (EDT twin)
+    - cron: "45 12 * * 1-5"   # morning   (EST twin)
+    - cron: "45 14 * * 1-5"   # afternoon (EDT twin)
+    - cron: "45 15 * * 1-5"   # afternoon (EST twin)
+  workflow_dispatch:
+    inputs:
+      block:
+        description: "Block to run"
+        required: true
+        type: choice
+        options: [london, morning, afternoon]
+      dry_run:
+        description: "Signals only, no orders"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sb-paper-bot
+  cancel-in-progress: false
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 358
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve block
+        id: blk
+        run: |
+          case "${{ github.event_name }}" in
+            workflow_dispatch) B="${{ inputs.block }}" ;;
+            *) case "${{ github.event.schedule }}" in
+                 "45 5 * * 1-5"|"45 6 * * 1-5")   B=london ;;
+                 "45 11 * * 1-5"|"45 12 * * 1-5") B=morning ;;
+                 "45 14 * * 1-5"|"45 15 * * 1-5") B=afternoon ;;
+               esac ;;
+          esac
+          echo "block=$B" >> "$GITHUB_OUTPUT"
+
+      - name: Gate (sleep until block start, or skip)
+        id: gate
+        run: |
+          OUT=$(python3 bot/block_gate.py "${{ steps.blk.outputs.block }}")
+          echo "gate says: $OUT"
+          if [ "$OUT" = "SKIP" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            sleep "$OUT"
+          fi
+
+      - name: Check secrets
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          if [ -z "${{ secrets.IBKR_PAPER_USER }}" ] || [ -z "${{ secrets.IBKR_PAPER_PASSWORD }}" ]; then
+            echo "::error::Missing IBKR_PAPER_USER / IBKR_PAPER_PASSWORD repo secrets"
+            exit 1
+          fi
+
+      - name: Start IB Gateway (paper, headless)
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          docker run -d --name ibgw \
+            -p 127.0.0.1:4002:4004 \
+            -e TWS_USERID='${{ secrets.IBKR_PAPER_USER }}' \
+            -e TWS_PASSWORD='${{ secrets.IBKR_PAPER_PASSWORD }}' \
+            -e TRADING_MODE=paper \
+            -e READ_ONLY_API=no \
+            ghcr.io/gnzsnz/ib-gateway:stable
+          echo "Waiting for API port..."
+          for i in $(seq 1 90); do
+            if nc -z 127.0.0.1 4002; then echo "Gateway up"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::Gateway never opened the API port"; docker logs ibgw | tail -50; exit 1
+
+      - name: Run bot
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          pip install -q ib_async
+          FLAG=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then FLAG="--dry-run"; fi
+          SB_BLOCK="${{ steps.blk.outputs.block }}" python3 bot/sb_paper_bot.py $FLAG
+
+      - name: Commit journal
+        if: always() && steps.gate.outputs.skip == 'false'
+        run: |
+          if [ -f bot/sb_bot_journal.csv ]; then
+            mkdir -p data
+            touch data/bot_journal.csv
+            head -1 bot/sb_bot_journal.csv > /tmp/j.csv
+            tail -n +2 -q data/bot_journal.csv bot/sb_bot_journal.csv 2>/dev/null \
+              | grep -v '^date,' | sort -u >> /tmp/j.csv || true
+            cp /tmp/j.csv data/bot_journal.csv
+            git config user.name "sb-update-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add data/bot_journal.csv
+            git diff --cached --quiet || {
+              git commit -m "bot: journal update"
+              git pull --rebase && git push
+            }
+          fi
+
+      - name: Upload log
+        if: always() && steps.gate.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sb-bot-log-${{ github.run_id }}
+          path: bot/sb_bot.log
+          if-no-files-found: ignore
+
+      - name: Stop gateway
+        if: always() && steps.gate.outputs.skip == 'false'
+        run: docker rm -f ibgw 2>/dev/null || true
