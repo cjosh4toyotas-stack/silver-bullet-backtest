@@ -83,7 +83,7 @@ jobs:
             -e EXISTING_SESSION_DETECTED_ACTION=primary \
             -e TWOFA_TIMEOUT_ACTION=restart \
             -e TIME_ZONE=America/New_York \
-            ghcr.io/gnzsnz/ib-gateway:stable
+            ghcr.io/gnzsnz/ib-gateway:latest
           echo "Waiting for API port..."
           for i in $(seq 1 90); do
             if nc -z 127.0.0.1 4002; then echo "Gateway up"; exit 0; fi
@@ -104,6 +104,10 @@ jobs:
         run: |
           echo "=== ibgw container logs (last 120 lines) ==="
           docker logs ibgw 2>&1 | tail -120 || true
+          echo "=== IBC / gateway log files ==="
+          docker exec ibgw sh -c 'for f in $(find /home/ibgateway -name "*.log" 2>/dev/null | head -4); do echo "--- $f"; tail -50 "$f"; done' || true
+          echo "=== processes in container ==="
+          docker exec ibgw ps aux 2>/dev/null | head -15 || true
 
       - name: Commit journal
         if: always() && steps.gate.outputs.skip == 'false'
