@@ -429,15 +429,26 @@ def main():
         return
 
     ib = IB()
-    for port in PAPER_PORTS:
-        try:
-            ib.connect("127.0.0.1", port, clientId=CLIENT_ID, timeout=8)
+    # Gateway's port opens before its IBKR login finishes, so keep knocking:
+    # up to ~6 minutes of retries before giving up.
+    last_err = None
+    for attempt in range(24):
+        for port in PAPER_PORTS:
+            try:
+                ib.connect("127.0.0.1", port, clientId=CLIENT_ID, timeout=15)
+                break
+            except Exception as e:
+                last_err = e
+        if ib.isConnected():
             break
-        except Exception:
-            continue
+        if attempt % 3 == 0:
+            log(f"waiting for gateway API (attempt {attempt + 1}/24): {last_err}")
+        time.sleep(10)
     if not ib.isConnected():
-        sys.exit("Could not connect. Is IB Gateway (paper) or TWS (paper) "
-                 "running with API enabled on port 4002/7497?")
+        sys.exit("Could not connect after ~6 min. Is IB Gateway (paper) or TWS "
+                 "(paper) running with API enabled on port 4002/7497? "
+                 "If this is a cloud run, the gateway login may have failed - "
+                 "check credentials/2FA on the paper account.")
 
     accounts = ib.managedAccounts()
     if not accounts or not all(a.startswith("DU") for a in accounts):
