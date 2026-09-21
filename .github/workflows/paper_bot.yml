@@ -96,6 +96,12 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then FLAG="--dry-run"; fi
           SB_BLOCK="${{ steps.blk.outputs.block }}" python3 bot/sb_paper_bot.py $FLAG
 
+      - name: Gateway diagnostics
+        if: always() && steps.gate.outputs.skip == 'false'
+        run: |
+          echo "=== ibgw container logs (last 120 lines) ==="
+          docker logs ibgw 2>&1 | tail -120 || true
+
       - name: Commit journal
         if: always() && steps.gate.outputs.skip == 'false'
         run: |
