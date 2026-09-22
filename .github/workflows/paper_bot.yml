@@ -23,6 +23,10 @@ on:
         description: "Signals only, no orders"
         type: boolean
         default: false
+      login_test:
+        description: "Only test the gateway login, no trading"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -54,6 +58,11 @@ jobs:
       - name: Gate (sleep until block start, or skip)
         id: gate
         run: |
+          if [ "${{ inputs.login_test }}" = "true" ]; then
+            echo "login test: bypassing gate"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           OUT=$(python3 bot/block_gate.py "${{ steps.blk.outputs.block }}")
           echo "gate says: $OUT"
           if [ "$OUT" = "SKIP" ]; then
@@ -95,9 +104,29 @@ jobs:
         if: steps.gate.outputs.skip == 'false'
         run: |
           pip install -q ib_async
+          if [ "${{ inputs.login_test }}" = "true" ]; then
+          python3 - <<'PY'
+          import sys, time
+          from ib_async import IB
+          ib = IB()
+          for attempt in range(24):
+              try:
+                  ib.connect("127.0.0.1", 4002, clientId=9, timeout=15)
+              except Exception as e:
+                  print(f"attempt {attempt+1}/24: {e}", flush=True)
+              if ib.isConnected():
+                  print("LOGIN TEST PASSED - accounts:", ib.managedAccounts(), flush=True)
+                  ib.disconnect()
+                  sys.exit(0)
+              time.sleep(10)
+          print("LOGIN TEST FAILED - gateway API never came up", flush=True)
+          sys.exit(1)
+          PY
+          else
           FLAG=""
           if [ "${{ inputs.dry_run }}" = "true" ]; then FLAG="--dry-run"; fi
           SB_BLOCK="${{ steps.blk.outputs.block }}" python3 bot/sb_paper_bot.py $FLAG
+          fi
 
       - name: Gateway diagnostics
         if: always() && steps.gate.outputs.skip == 'false'
