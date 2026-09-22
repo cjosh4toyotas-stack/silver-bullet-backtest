@@ -135,8 +135,10 @@ jobs:
         run: |
           CONN=false
           grep -q "Connected. Paper account" bot/sb_bot.log 2>/dev/null && CONN=true
+          EQ=$(cat bot/sb_equity.txt 2>/dev/null || true)
+          case "$EQ" in (''|*[!0-9.]*) EQ=null ;; esac
           mkdir -p data
-          printf '{"utc":"%s","block":"%s","connected":%s,"outcome":"%s","run_id":"%s"}' "$(date -u +%FT%TZ)" "${{ steps.blk.outputs.block }}" "$CONN" "${{ steps.runbot.outcome }}" "${{ github.run_id }}" > data/bot_status.json
+          printf '{"utc":"%s","block":"%s","connected":%s,"outcome":"%s","run_id":"%s","equity":%s}' "$(date -u +%FT%TZ)" "${{ steps.blk.outputs.block }}" "$CONN" "${{ steps.runbot.outcome }}" "${{ github.run_id }}" "$EQ" > data/bot_status.json
           cat data/bot_status.json
 
       - name: Gateway diagnostics
