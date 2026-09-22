@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """
-Silver Bullet v3 — automated PAPER trading bot (SPY/QQQ proxies).
+Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
-Trades the v3 spec selected 2026-09-19, using ETF proxies while futures
-permissions are pending:
+v4 (tuned 2026-09-22 on ES/NQ 5-min data, Jun 9 - Aug 31 train,
+Sep 1-22 holdout; v3 stays the spec for real futures):
 
-    SPY (proxy for ES):  NYMEX open 9-10a ET   .. 1R target
-                         Pre-settle 1:30-2:30p .. 1R target
-                         London 3-4a ET        .. 2R target   (pre-market)
-    QQQ (proxy for NQ):  Midday 12-1p ET       .. 1R target
+    SPY (proxy for ES):  London 3-4a ET        .. 3R, stop at sweep, 2h hold
+                         NYMEX open 9-10a      .. 3R, stop at sweep, 1h hold,
+                                                  breakeven at +1R, stop cap 0.15%
+                         Pre-settle 1:30-2:30p .. 3R, stop at GAP edge, 3h hold
+    QQQ (proxy for NQ):  Midday 12-1p ET       .. v3 kept (1R, sweep, 2h) -
+                                                  tuned params lost the holdout
     CL: not traded (no profitable configuration in the data)
 
 Detection logic is a line-for-line port of update.py rules v1.1
 (sweep of prior 2h extreme -> FVG with displacement -> limit at gap edge,
-stop beyond sweep, R-multiple target, 2h time exit, one trade per window).
+stop beyond sweep or gap edge, R-multiple target, time exit, one
+trade per window).
 
 SAFETY:
   * Refuses to run unless every managed account starts with "DU" (paper).
@@ -72,18 +75,29 @@ JOURNAL = os.path.join(HERE, "sb_bot_journal.csv")
 
 # Strategy constants — must match update.py rules v1.1
 LOOKBACK = 24            # bars (2h of 5-min) for the sweep reference extreme
-MAX_HOLD = 24            # bars (2h) max hold after fill
+MAX_HOLD = 24            # bars (2h) default max hold after fill
 TICK = 0.01              # ETF tick
 
 def min_gap(p):  return max(0.01, p * 1.7e-5)    # relative thresholds, as ES/CL
 def max_stop(p): return p * 0.002
 
-# (symbol, window name, window start in minutes after NY midnight, target R)
+# v4 legs. Each dict: window start in minutes after NY midnight, target R,
+# stop_mode ("sweep" = beyond the sweep extreme, "gap" = beyond the far gap
+# edge), max_hold in 5-min bars, breakeven (move stop to entry once +1R
+# trades), stop_frac (max stop distance as fraction of price).
 LEGS = [
-    ("SPY", "London 3-4a",          180, 2.0),
-    ("SPY", "NYMEX open 9-10a",     540, 1.0),
-    ("QQQ", "Midday 12-1p",         720, 1.0),
-    ("SPY", "Pre-settle 1:30-2:30p", 810, 1.0),
+    {"sym": "SPY", "window": "London 3-4a",           "wmin": 180,
+     "target_r": 3.0, "stop_mode": "sweep", "max_hold": 24,
+     "breakeven": False, "stop_frac": 0.002},
+    {"sym": "SPY", "window": "NYMEX open 9-10a",      "wmin": 540,
+     "target_r": 3.0, "stop_mode": "sweep", "max_hold": 12,
+     "breakeven": True,  "stop_frac": 0.0015},
+    {"sym": "QQQ", "window": "Midday 12-1p",          "wmin": 720,
+     "target_r": 1.0, "stop_mode": "sweep", "max_hold": 24,
+     "breakeven": False, "stop_frac": 0.002},   # v3 kept: beat tuned on holdout
+    {"sym": "SPY", "window": "Pre-settle 1:30-2:30p", "wmin": 810,
+     "target_r": 3.0, "stop_mode": "gap",   "max_hold": 36,
+     "breakeven": False, "stop_frac": 0.002},
 ]
 PROXY_OF = {"SPY": "ES", "QQQ": "NQ"}
 
@@ -123,10 +137,13 @@ def find_fvg(bars, start, end, bias, min_gap_fn):
 
 
 def detect_setup(bars, day, wmin, target_r,
-                 tick=TICK, min_gap_fn=min_gap, max_stop_fn=max_stop):
-    """Given completed 5-min bars (dicts with ny/o/h/l/c), return the v3 setup
+                 tick=TICK, min_gap_fn=min_gap, max_stop_fn=max_stop,
+                 stop_mode="sweep"):
+    """Given completed 5-min bars (dicts with ny/o/h/l/c), return the setup
     for `day`'s window starting at `wmin` minutes after NY midnight, or None.
-    Identical decision path to update.py run_backtest up to order placement."""
+    Identical decision path to update.py run_backtest up to order placement.
+    stop_mode "sweep" places the stop beyond the sweep extreme (v3);
+    "gap" places it beyond the far gap edge (v4 pre-settle leg)."""
     wopen = datetime(day.year, day.month, day.day, tzinfo=NY) + timedelta(minutes=wmin)
     wclose = wopen + timedelta(hours=1)
     scan_start = wopen - timedelta(minutes=30)
@@ -146,7 +163,10 @@ def detect_setup(bars, day, wmin, target_r,
         return None
     fi, gfar, gnear = fvg
     entry = gnear
-    stop = sweep_ext - tick if bias == "bull" else sweep_ext + tick
+    if stop_mode == "gap":
+        stop = gfar - tick if bias == "bull" else gfar + tick
+    else:
+        stop = sweep_ext - tick if bias == "bull" else sweep_ext + tick
     if bias == "bull" and stop >= entry:
         return None
     if bias == "bear" and stop <= entry:
@@ -414,7 +434,7 @@ def main():
         if block not in BLOCKS:
             sys.exit(f"Unknown SB_BLOCK {block!r}; use one of {sorted(BLOCKS)}")
         b0, b1, wnames = BLOCKS[block]
-        legs = [l for l in LEGS if l[1] in wnames]
+        legs = [l for l in LEGS if l["window"] in wnames]
         now = datetime.now(NY)
         block_end = (datetime(now.year, now.month, now.day, tzinfo=NY)
                      + timedelta(minutes=b1))
@@ -469,12 +489,20 @@ def main():
         log(f"Account equity: ${equity:,.0f}")
     except Exception as e:
         log(f"equity fetch failed ({e}) — using ${equity:,.0f}")
+    try:
+        # picked up by the workflow and shown on the IBKR page
+        with open(os.path.join(HERE, "sb_equity.txt"), "w") as f:
+            f.write(f"{equity:.2f}")
+    except OSError as e:
+        log(f"equity file write failed: {e}")
 
     contracts = {}
-    for sym in {l[0] for l in legs}:
+    tickers = {}
+    for sym in {l["sym"] for l in legs}:
         c = Stock(sym, "SMART", "USD", primaryExchange="ARCA")
         ib.qualifyContracts(c)
         contracts[sym] = c
+        tickers[sym] = ib.reqMktData(c, "", False, False)
 
     done = {}       # (date, window name) -> True once traded/attempted
     open_mgmt = []  # [{trade info for time-exit management}]
@@ -562,7 +590,31 @@ def main():
                     break
             if done_close:
                 continue
-            if now >= m["fill_time"] + timedelta(minutes=5 * MAX_HOLD):
+            # v4 breakeven: once price trades +1R in our favor, move the
+            # resting stop to entry (engine arms it and applies from then on)
+            if m.get("breakeven") and not m.get("be_armed"):
+                tk = tickers.get(m["symbol"])
+                px = None
+                if tk is not None:
+                    for cand in (tk.last, tk.close):
+                        if cand and cand > 0:
+                            px = cand
+                            break
+                if px is not None:
+                    up = m["side"] == "BUY"
+                    trig = (m["entry_px"] + m["risk"] if up
+                            else m["entry_px"] - m["risk"])
+                    if (px >= trig) if up else (px <= trig):
+                        t2 = next((t for t in ib.openTrades()
+                                   if t.order.orderId == m["sl_id"]), None)
+                        if t2 is not None:
+                            t2.order.auxPrice = round(m["entry_px"], 2)
+                            ib.placeOrder(contracts[m["symbol"]], t2.order)
+                            m["be_armed"] = True
+                            log(f"BREAKEVEN {m['symbol']} {m['window']}: "
+                                f"stop moved to entry {m['entry_px']}")
+            if now >= m["fill_time"] + timedelta(
+                    minutes=5 * m.get("max_hold", MAX_HOLD)):
                 pos = next((p for p in ib.positions()
                             if p.contract.symbol == m["symbol"] and p.position != 0), None)
                 if pos:
@@ -575,13 +627,16 @@ def main():
                                     abs(pos.position))
                     o.outsideRth = True
                     m["closing"] = ib.placeOrder(c, o)
-                    log(f"TIME EXIT {m['symbol']} {m['window']} after 2h")
+                    log(f"TIME EXIT {m['symbol']} {m['window']} after "
+                        f"{m.get('max_hold', MAX_HOLD) * 5} min")
                 else:
                     open_mgmt.remove(m)
 
         # scan active windows
         if halted_day != today:
-            for sym, wname, wmin, target_r in legs:
+            for leg in legs:
+                sym, wname = leg["sym"], leg["window"]
+                wmin, target_r = leg["wmin"], leg["target_r"]
                 key = (str(today), wname)
                 if key in done:
                     continue
@@ -596,7 +651,10 @@ def main():
                 except Exception as e:
                     log(f"bar fetch failed for {sym}: {e}")
                     continue
-                setup = detect_setup(bars, today, wmin, target_r)
+                sf = leg["stop_frac"]
+                setup = detect_setup(bars, today, wmin, target_r,
+                                     max_stop_fn=lambda p, _sf=sf: p * _sf,
+                                     stop_mode=leg["stop_mode"])
                 if not setup:
                     continue
                 done[key] = True
@@ -615,14 +673,17 @@ def main():
                                        equity=equity, size_factor=size_factor)
                 if placed:
                     placed.update({"symbol": sym, "window": wname,
-                                   "wclose": wclose, "fill_time": None})
+                                   "wclose": wclose, "fill_time": None,
+                                   "max_hold": leg["max_hold"],
+                                   "breakeven": leg["breakeven"],
+                                   "be_armed": False})
                     open_mgmt.append(placed)
 
         # cloud mode: leave early once every window is closed and nothing is open
         if block and not open_mgmt:
             last_close = max(
                 datetime(today.year, today.month, today.day, tzinfo=NY)
-                + timedelta(minutes=wmin + 60) for _, _, wmin, _ in legs)
+                + timedelta(minutes=l["wmin"] + 60) for l in legs)
             if now > last_close and not any(
                     p.position for p in ib.positions()
                     if p.contract.symbol in contracts):
