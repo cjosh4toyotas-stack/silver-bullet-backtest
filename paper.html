@@ -67,7 +67,7 @@
 </head>
 <body>
 <div class="topbar">
-  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v3 spec</small></span>
+  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v4 spec</small></span>
   <span id="brk" class="badge ok" style="display:none"></span>
   <span class="spacer"></span>
   <span class="updated" id="upd"></span>
@@ -83,9 +83,9 @@
     <h2 style="display:flex;align-items:center">
       <span id="chartTitle">Equity curve — realized $ per closed trade</span>
       <span class="ctabs" id="chartTabs">
-        <span class="ctab sel" data-c="$">$</span>
+        <span class="ctab" data-c="$">$</span>
         <span class="ctab" data-c="R">R</span>
-        <span class="ctab" data-c="SPY">SPY</span>
+        <span class="ctab sel" data-c="SPY">SPY</span>
         <span class="ctab" data-c="QQQ">QQQ</span>
       </span>
     </h2>
@@ -125,7 +125,7 @@ function parseCSV(text){
 }
 
 let LAST = {rows:[], mech:null, bars:{}};
-let MODE = "$";
+let MODE = "SPY";
 
 function parseBars(text){
   // ts,open,high,low,close,volume with ISO timestamps
@@ -182,7 +182,10 @@ function render(){
   brk.className="badge "+(tripped?"trip":"ok");
   brk.textContent = tripped?"CIRCUIT BREAKER TRIPPED":"BREAKERS ARMED";
 
-  const t=[["Net P&L",fmt$(net),closed.length?cls(net):"", closed.length+" closed trades"],
+  const eq = LAST.status && LAST.status.equity;
+  const t=[...(eq?[["Balance",fmt$(eq),cls(eq-1_000_000),
+      "net liq · started $1,000,000"]]:[]),
+    ["Net P&L",fmt$(net),closed.length?cls(net):"", closed.length+" closed trades"],
     ["Total R",(netR>=0?"+":"")+netR.toFixed(2)+"R",cls(netR),
       closed.length?("avg "+(netR/closed.length).toFixed(2)+"R"):"—"],
     ["Win rate",closed.length?Math.round(100*wins/closed.length)+"%":"—","",
@@ -277,7 +280,7 @@ function drawCandles(sym, closed){
   }
   const lastDay=nyDate(all[all.length-1].t);
   const bars=all.filter(b=>nyDate(b.t)===lastDay);
-  note.textContent=lastDay+" · "+bars.length+" bars · shaded = v3 windows for "+sym;
+  note.textContent=lastDay+" · "+bars.length+" bars · shaded = trade windows for "+sym;
   const pad={l:56,r:12,t:12,b:22};
   const lo=Math.min(...bars.map(b=>b.l)), hi=Math.max(...bars.map(b=>b.h));
   const span=(hi-lo)||1;
