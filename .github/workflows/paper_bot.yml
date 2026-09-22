@@ -101,7 +101,9 @@ jobs:
           echo "::error::Gateway never opened the API port"; docker logs ibgw | tail -50; exit 1
 
       - name: Run bot
+        id: runbot
         if: steps.gate.outputs.skip == 'false'
+        continue-on-error: true
         run: |
           pip install -q ib_async
           if [ "${{ inputs.login_test }}" = "true" ]; then
@@ -128,6 +130,15 @@ jobs:
           SB_BLOCK="${{ steps.blk.outputs.block }}" python3 bot/sb_paper_bot.py $FLAG
           fi
 
+      - name: Write connection status
+        if: always() && steps.gate.outputs.skip == 'false'
+        run: |
+          CONN=false
+          grep -q "Connected. Paper account" bot/sb_bot.log 2>/dev/null && CONN=true
+          mkdir -p data
+          printf '{"utc":"%s","block":"%s","connected":%s,"outcome":"%s","run_id":"%s"}' "$(date -u +%FT%TZ)" "${{ steps.blk.outputs.block }}" "$CONN" "${{ steps.runbot.outcome }}" "${{ github.run_id }}" > data/bot_status.json
+          cat data/bot_status.json
+
       - name: Gateway diagnostics
         if: always() && steps.gate.outputs.skip == 'false'
         run: |
@@ -148,14 +159,18 @@ jobs:
             tail -n +2 -q data/bot_journal.csv bot/sb_bot_journal.csv 2>/dev/null \
               | grep -v '^date,' | sort -u >> /tmp/j.csv || true
             cp /tmp/j.csv data/bot_journal.csv
-            git config user.name "sb-update-bot"
-            git config user.email "actions@users.noreply.github.com"
-            git add data/bot_journal.csv
-            git diff --cached --quiet || {
-              git commit -m "bot: journal update"
-              git pull --rebase && git push
-            }
           fi
+          git config user.name "sb-update-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/bot_journal.csv data/bot_status.json 2>/dev/null || true
+          git diff --cached --quiet || {
+            git commit -m "bot: status/journal update"
+            git pull --rebase && git push
+          }
+
+      - name: Propagate bot result
+        if: always() && steps.gate.outputs.skip == 'false' && steps.runbot.outcome == 'failure'
+        run: exit 1
 
       - name: Upload log
         if: always() && steps.gate.outputs.skip == 'false'
