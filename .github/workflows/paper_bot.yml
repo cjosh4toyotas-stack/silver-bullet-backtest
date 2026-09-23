@@ -1,17 +1,16 @@
 name: Paper trading bot
-# Runs the Silver Bullet v3 paper bot in the cloud so no laptop is needed.
-# Each trading block gets two UTC crons (EDT + EST twins); bot/block_gate.py
-# lets exactly one twin claim each day and sleeps until the block starts.
+# Runs the Silver Bullet paper bot in the cloud so no laptop is needed.
+# GitHub's cron scheduler fires late or not at all on some days, so the
+# schedule is self-healing: a firing every 30 minutes, and bot/block_gate.py
+# in "auto" mode decides from the actual clock which block (if any) is
+# running or starts within 90 minutes. The concurrency group serializes runs,
+# so redundant firings queue and then SKIP in seconds; GitHub marking a
+# superseded queued run "cancelled" is normal and harmless.
 # Requires repo secrets IBKR_PAPER_USER and IBKR_PAPER_PASSWORD (paper login).
 
 on:
   schedule:
-    - cron: "45 5 * * 1-5"    # london    (EDT twin)
-    - cron: "45 6 * * 1-5"    # london    (EST twin)
-    - cron: "45 11 * * 1-5"   # morning   (EDT twin)
-    - cron: "45 12 * * 1-5"   # morning   (EST twin)
-    - cron: "45 14 * * 1-5"   # afternoon (EDT twin)
-    - cron: "45 15 * * 1-5"   # afternoon (EST twin)
+    - cron: "15,45 4-20 * * 1-5"   # every 30 min through the trading day (UTC)
   workflow_dispatch:
     inputs:
       block:
@@ -42,34 +41,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve block
-        id: blk
-        run: |
-          case "${{ github.event_name }}" in
-            workflow_dispatch) B="${{ inputs.block }}" ;;
-            *) case "${{ github.event.schedule }}" in
-                 "45 5 * * 1-5"|"45 6 * * 1-5")   B=london ;;
-                 "45 11 * * 1-5"|"45 12 * * 1-5") B=morning ;;
-                 "45 14 * * 1-5"|"45 15 * * 1-5") B=afternoon ;;
-               esac ;;
-          esac
-          echo "block=$B" >> "$GITHUB_OUTPUT"
-
-      - name: Gate (sleep until block start, or skip)
+      - name: Gate (pick block, sleep until start, or skip)
         id: gate
         run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ARG="${{ inputs.block }}"
+          else
+            ARG=auto
+          fi
           if [ "${{ inputs.login_test }}" = "true" ]; then
             echo "login test: bypassing gate"
+            echo "block=$ARG" >> "$GITHUB_OUTPUT"
             echo "skip=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          OUT=$(python3 bot/block_gate.py "${{ steps.blk.outputs.block }}")
-          echo "gate says: $OUT"
-          if [ "$OUT" = "SKIP" ]; then
+          OUT=$(python3 bot/block_gate.py "$ARG")
+          echo "gate says:"
+          echo "$OUT"
+          BLOCK=$(echo "$OUT" | sed -n 's/^block=//p')
+          VERDICT=$(echo "$OUT" | sed -n 2p)
+          echo "block=$BLOCK" >> "$GITHUB_OUTPUT"
+          if [ "$VERDICT" = "SKIP" ] || [ "$BLOCK" = "none" ] || [ -z "$BLOCK" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            sleep "$OUT"
+            sleep "$VERDICT"
           fi
 
       - name: Check secrets
@@ -127,7 +123,7 @@ jobs:
           else
           FLAG=""
           if [ "${{ inputs.dry_run }}" = "true" ]; then FLAG="--dry-run"; fi
-          SB_BLOCK="${{ steps.blk.outputs.block }}" python3 bot/sb_paper_bot.py $FLAG
+          SB_BLOCK="${{ steps.gate.outputs.block }}" python3 bot/sb_paper_bot.py $FLAG
           fi
 
       - name: Write connection status
@@ -138,7 +134,7 @@ jobs:
           EQ=$(cat bot/sb_equity.txt 2>/dev/null || true)
           case "$EQ" in (''|*[!0-9.]*) EQ=null ;; esac
           mkdir -p data
-          printf '{"utc":"%s","block":"%s","connected":%s,"outcome":"%s","run_id":"%s","equity":%s}' "$(date -u +%FT%TZ)" "${{ steps.blk.outputs.block }}" "$CONN" "${{ steps.runbot.outcome }}" "${{ github.run_id }}" "$EQ" > data/bot_status.json
+          printf '{"utc":"%s","block":"%s","connected":%s,"outcome":"%s","run_id":"%s","equity":%s}' "$(date -u +%FT%TZ)" "${{ steps.gate.outputs.block }}" "$CONN" "${{ steps.runbot.outcome }}" "${{ github.run_id }}" "$EQ" > data/bot_status.json
           cat data/bot_status.json
 
       - name: Gateway diagnostics
