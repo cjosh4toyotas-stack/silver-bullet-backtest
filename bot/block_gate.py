@@ -20,8 +20,8 @@ import sys
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-BLOCKS = {"london": 145, "morning": 505, "afternoon": 689}
-ENDS = {"london": 370, "morning": 688, "afternoon": 995}
+BLOCKS = {"london": 145, "morning": 445, "afternoon": 656}
+ENDS = {"london": 370, "morning": 655, "afternoon": 995}
 HORIZON = timedelta(minutes=90)   # claim a block up to 90 min early; longer
                                   # would risk GitHub's 6h job limit killing a
                                   # run mid-trade (sleep + London block + setup)
