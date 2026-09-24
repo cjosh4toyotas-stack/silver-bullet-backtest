@@ -67,7 +67,7 @@
 </head>
 <body>
 <div class="topbar">
-  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v4 spec</small></span>
+  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v4.1 spec</small></span>
   <span id="brk" class="badge ok" style="display:none"></span>
   <span class="spacer"></span>
   <span class="updated" id="upd"></span>
@@ -258,7 +258,8 @@ function drawEquity(closed, val, fmt){
 }
 
 // window name -> [start,end] minutes after NY midnight, for shading
-const WIN_MIN = {"London 3-4a":[180,240], "NYMEX open 9-10a":[540,600],
+const WIN_MIN = {"London 3-4a":[180,240], "Pre-market 8-9a":[480,540],
+  "NYMEX open 9-10a":[540,600], "Late-morning 11a-12p":[660,720],
   "Midday 12-1p":[720,780], "Pre-settle 1:30-2:30p":[810,870]};
 const nyMinutes = t => {
   const p = new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",
@@ -287,7 +288,8 @@ function drawCandles(sym, closed){
   const X=i=>pad.l+(i+0.5)/bars.length*(W-pad.l-pad.r);
   const Y=v=>pad.t+(1-(v-lo)/span)*(H-pad.t-pad.b);
   // v3 window shading for this proxy
-  const legs = sym==="SPY" ? ["London 3-4a","NYMEX open 9-10a","Pre-settle 1:30-2:30p"]
+  const legs = sym==="SPY" ? ["London 3-4a","Pre-market 8-9a","NYMEX open 9-10a",
+      "Late-morning 11a-12p","Midday 12-1p","Pre-settle 1:30-2:30p"]
                            : ["Midday 12-1p"];
   g.fillStyle="rgba(57,135,229,.08)";
   for(const wname of legs){
