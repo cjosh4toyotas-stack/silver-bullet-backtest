@@ -205,7 +205,12 @@ RESULTS_DIR = os.path.join(ROOT, "results")
 def read_bars_csv(path):
     bars = []
     with open(path) as f:
-        for row in csv.DictReader(f):
+        reader = csv.DictReader(f)
+        # data/ also holds non-price CSVs (e.g. the paper bot's trade
+        # journal); anything without a timestamp_utc column is not bars.
+        if not reader.fieldnames or "timestamp_utc" not in reader.fieldnames:
+            return []
+        for row in reader:
             ts = row["timestamp_utc"].strip().replace("Z", "+00:00")
             t = datetime.fromisoformat(ts)
             bars.append({
