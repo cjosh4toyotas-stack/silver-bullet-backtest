@@ -2,15 +2,16 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
-v4 (tuned 2026-09-22 on ES/NQ 5-min data, Jun 9 - Aug 31 train,
-Sep 1-22 holdout; v3 stays the spec for real futures):
+v4.1 (window scan + grid tuned 2026-09-24 on ES/NQ 5-min data,
+Jun 9 - Aug 31 train, Sep 1-24 holdout; v3 stays the spec for real futures):
 
-    SPY (proxy for ES):  London 3-4a ET        .. 3R, stop at sweep, 2h hold
-                         NYMEX open 9-10a      .. 3R, stop at sweep, 1h hold,
-                                                  breakeven at +1R, stop cap 0.15%
-                         Pre-settle 1:30-2:30p .. 3R, stop at GAP edge, 3h hold
-    QQQ (proxy for NQ):  Midday 12-1p ET       .. v3 kept (1R, sweep, 2h) -
-                                                  tuned params lost the holdout
+    SPY (proxy for ES):  London 3-4a           .. 3R, sweep stop, 2h hold
+                         Pre-market 8-9a       .. 3R, sweep stop, 2h hold
+                         NYMEX open 9-10a      .. 3R, sweep stop, 1h hold, BE +1R
+                         Late-morning 11a-12p  .. 2.5R, sweep stop, 1h, BE +1R
+                         Midday 12-1p          .. 2R, GAP stop, 1h hold
+                         Pre-settle 1:30-2:30p .. 3R, GAP stop, 3h hold
+    QQQ (proxy for NQ):  Midday 12-1p          .. v3 kept (1R, sweep, 2h)
     CL: not traded (no profitable configuration in the data)
 
 Detection logic is a line-for-line port of update.py rules v1.1
@@ -89,12 +90,21 @@ LEGS = [
     {"sym": "SPY", "window": "London 3-4a",           "wmin": 180,
      "target_r": 3.0, "stop_mode": "sweep", "max_hold": 24,
      "breakeven": False, "stop_frac": 0.002},
+    {"sym": "SPY", "window": "Pre-market 8-9a",       "wmin": 480,
+     "target_r": 3.0, "stop_mode": "sweep", "max_hold": 24,
+     "breakeven": False, "stop_frac": 0.003},   # v4.1
     {"sym": "SPY", "window": "NYMEX open 9-10a",      "wmin": 540,
      "target_r": 3.0, "stop_mode": "sweep", "max_hold": 12,
      "breakeven": True,  "stop_frac": 0.0015},
+    {"sym": "SPY", "window": "Late-morning 11a-12p",  "wmin": 660,
+     "target_r": 2.5, "stop_mode": "sweep", "max_hold": 12,
+     "breakeven": True,  "stop_frac": 0.003},   # v4.1: best Sept holdout
     {"sym": "QQQ", "window": "Midday 12-1p",          "wmin": 720,
      "target_r": 1.0, "stop_mode": "sweep", "max_hold": 24,
      "breakeven": False, "stop_frac": 0.002},   # v3 kept: beat tuned on holdout
+    {"sym": "SPY", "window": "Midday 12-1p",          "wmin": 720,
+     "target_r": 2.0, "stop_mode": "gap",   "max_hold": 12,
+     "breakeven": False, "stop_frac": 0.002},   # v4.1
     {"sym": "SPY", "window": "Pre-settle 1:30-2:30p", "wmin": 810,
      "target_r": 3.0, "stop_mode": "gap",   "max_hold": 36,
      "breakeven": False, "stop_frac": 0.002},
@@ -106,8 +116,9 @@ PROXY_OF = {"SPY": "ES", "QQQ": "NQ"}
 # midnight: start, end, window names)
 BLOCKS = {
     "london":    (145, 370, ["London 3-4a"]),
-    "morning":   (505, 688, ["NYMEX open 9-10a"]),
-    "afternoon": (689, 995, ["Midday 12-1p", "Pre-settle 1:30-2:30p"]),
+    "morning":   (445, 655, ["Pre-market 8-9a", "NYMEX open 9-10a"]),
+    "afternoon": (656, 995, ["Late-morning 11a-12p", "Midday 12-1p",
+                             "Pre-settle 1:30-2:30p"]),
 }
 
 # ---------------- detection (ported verbatim from update.py) ----------------
@@ -637,7 +648,7 @@ def main():
             for leg in legs:
                 sym, wname = leg["sym"], leg["window"]
                 wmin, target_r = leg["wmin"], leg["target_r"]
-                key = (str(today), wname)
+                key = (str(today), sym, wname)
                 if key in done:
                     continue
                 wopen = datetime(today.year, today.month, today.day,
