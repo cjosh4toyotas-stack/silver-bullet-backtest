@@ -11,6 +11,12 @@ name: Paper trading bot
 on:
   schedule:
     - cron: "15,45 4-20 * * 1-5"   # every 30 min through the trading day (UTC)
+push:
+    paths:
+      - "trigger/**"
+  workflow_run:
+    workflows: ["Update Silver Bullet backtest"]
+    types: [completed] 
   workflow_dispatch:
     inputs:
       block:
