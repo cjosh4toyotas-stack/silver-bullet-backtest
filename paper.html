@@ -356,14 +356,31 @@ function renderBotline(s){
   if(!s){ el.style.display="none"; return; }
   el.style.display="block";
   const t=new Date(s.utc);
+  const ageMin=(Date.now()-t.getTime())/60000;
   const when=t.toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
-  if(s.connected){
-    el.style.background="rgba(57,135,229,.10)";
-    el.style.color="var(--pos)";
-    el.textContent="\u25CF CLOUD BOT CONNECTED to IBKR \u00B7 "+when+" \u00B7 block: "+s.block;
+  const ago = ageMin<1.5 ? "just now" : ageMin<90 ? Math.round(ageMin)+" min ago"
+            : (ageMin/60).toFixed(1)+" h ago";
+  const red=()=>{ el.style.background="rgba(230,103,103,.14)"; el.style.color="var(--neg)"; };
+  const amber=()=>{ el.style.background="rgba(240,185,80,.12)"; el.style.color="#e0aa3e"; };
+  const green=()=>{ el.style.background="rgba(57,135,229,.10)"; el.style.color="var(--pos)"; };
+  if(s.outcome==="running"){
+    const st = s.starts ? new Date(s.starts) : null;
+    if(ageMin>420){
+      red();
+      el.textContent="\u26A0 PROBLEM \u00B7 run launched "+when+" ("+ago+") and never reported a result \u00B7 block: "+s.block+" \u2014 click RUNS for the log";
+    }else if(st && st.getTime()>Date.now()){
+      const at=st.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+      amber();
+      el.textContent="\u25D0 BOT LAUNCHED \u00B7 waiting for block \u201C"+s.block+"\u201D \u00B7 trading starts "+at+" \u00B7 launched "+ago;
+    }else{
+      amber();
+      el.textContent="\u25D0 BOT RUNNING NOW \u00B7 block: "+s.block+" \u00B7 since "+when+" ("+ago+") \u2014 result posts when the block ends";
+    }
+  }else if(s.connected){
+    green();
+    el.textContent="\u25CF LAST RUN OK \u00B7 connected to IBKR \u00B7 block: "+s.block+" \u00B7 finished "+when+" ("+ago+")";
   }else{
-    el.style.background="rgba(230,103,103,.14)";
-    el.style.color="var(--neg)";
+    red();
     el.textContent="\u26A0 LAST RUN FAILED TO CONNECT TO IBKR \u00B7 "+when+" \u00B7 block: "+s.block+" \u2014 click RUNS for the log";
   }
 }
