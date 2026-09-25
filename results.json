@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-09-25 13:40",
+ "generated_utc": "2026-09-25 18:31",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 21073,
+   "bars": 21131,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-09-25 09:30"
+   "last_ny": "2026-09-25 14:20"
   },
   {
    "contract": "CL",
-   "bars": 20860,
+   "bars": 20918,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-09-25 09:30"
+   "last_ny": "2026-09-25 14:20"
   },
   {
    "contract": "ES",
-   "bars": 20798,
+   "bars": 20856,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-09-25 09:30"
+   "last_ny": "2026-09-25 14:20"
   }
  ],
  "overall": {
@@ -424,7 +424,7 @@
   },
   {
    "market": "NQ",
-   "contract": "NQ202609",
+   "contract": "NQF-continuous",
    "day": "2026-08-06",
    "window": "PM 2-3pm",
    "bias": "bear",
@@ -2066,17 +2066,17 @@
    "label": "3R target \u00b7 stop@gap edge",
    "n": 161,
    "win_rate": 25.5,
-   "avg_r": -0.111,
-   "total_r": -17.94,
+   "avg_r": -0.112,
+   "total_r": -17.98,
    "pf": 0.87,
    "per_market": {
     "NQ": {
-     "n": 58,
-     "avg_r": -0.21
+     "n": 57,
+     "avg_r": -0.196
     },
     "CL": {
-     "n": 49,
-     "avg_r": 0.082
+     "n": 50,
+     "avg_r": 0.058
     },
     "ES": {
      "n": 54,
@@ -2197,23 +2197,23 @@
    "n": 161,
    "win_rate": 36.6,
    "avg_r": -0.207,
-   "total_r": -33.25,
+   "total_r": -33.3,
    "pf": 0.71,
    "per_market": {
     "NQ": {
-     "n": 58,
-     "avg_r": -0.288
+     "n": 57,
+     "avg_r": -0.275
     },
     "CL": {
-     "n": 49,
-     "avg_r": 0.031
+     "n": 50,
+     "avg_r": 0.008
     },
     "ES": {
      "n": 54,
      "avg_r": -0.334
     }
    },
-   "is_avg_r": -0.226,
+   "is_avg_r": -0.227,
    "oos_avg_r": -0.163,
    "robust": false
   },
@@ -2223,23 +2223,23 @@
    "n": 161,
    "win_rate": 29.2,
    "avg_r": -0.247,
-   "total_r": -39.75,
+   "total_r": -39.8,
    "pf": 0.69,
    "per_market": {
     "NQ": {
-     "n": 58,
-     "avg_r": -0.383
+     "n": 57,
+     "avg_r": -0.371
     },
     "CL": {
-     "n": 49,
-     "avg_r": -0.041
+     "n": 50,
+     "avg_r": -0.062
     },
     "ES": {
      "n": 54,
      "avg_r": -0.288
     }
    },
-   "is_avg_r": -0.316,
+   "is_avg_r": -0.317,
    "oos_avg_r": -0.093,
    "robust": false
   },
@@ -2249,23 +2249,23 @@
    "n": 161,
    "win_rate": 41.0,
    "avg_r": -0.303,
-   "total_r": -48.75,
+   "total_r": -48.8,
    "pf": 0.55,
    "per_market": {
     "NQ": {
-     "n": 58,
-     "avg_r": -0.417
+     "n": 57,
+     "avg_r": -0.406
     },
     "CL": {
-     "n": 49,
-     "avg_r": -0.123
+     "n": 50,
+     "avg_r": -0.142
     },
     "ES": {
      "n": 54,
      "avg_r": -0.343
     }
    },
-   "is_avg_r": -0.37,
+   "is_avg_r": -0.371,
    "oos_avg_r": -0.153,
    "robust": false
   }
@@ -2715,13 +2715,13 @@
   },
   "new": {
    "label": "NEW v3 (sel. Sep 19) \u2014 NQ midday\u00b71R \u00b7 ES open+pre-settle\u00b71R & London\u00b72R \u00b7 CL not traded",
-   "n": 54,
-   "win_rate": 59.3,
-   "avg_r": 0.267,
-   "total_r": 14.4,
-   "pf": 1.67,
-   "is_avg_r": 0.276,
-   "oos_avg_r": 0.247,
+   "n": 55,
+   "win_rate": 60.0,
+   "avg_r": 0.28,
+   "total_r": 15.39,
+   "pf": 1.72,
+   "is_avg_r": 0.272,
+   "oos_avg_r": 0.298,
    "curve": [
     {
      "day": "2026-06-09",
@@ -2938,6 +2938,10 @@
     {
      "day": "2026-09-24",
      "cum_r": 14.4
+    },
+    {
+     "day": "2026-09-25",
+     "cum_r": 15.39
     }
    ]
   }
@@ -3000,8 +3004,8 @@
      "ES\u00b7NYMEX open 9-10a\u00b72R\u00b7BE",
      "ES\u00b7Pre-settle 1:30-2:30p\u00b71R"
     ],
-    "n": 2,
-    "r": -0.04
+    "n": 3,
+    "r": 0.95
    }
   ],
   "curve": [
@@ -3068,16 +3072,20 @@
    {
     "day": "2026-09-18",
     "cum_r": 2.87
+   },
+   {
+    "day": "2026-09-25",
+    "cum_r": 3.86
    }
   ],
   "summary": {
-   "n": 16,
-   "win_rate": 56.2,
-   "avg_r": 0.18,
-   "total_r": 2.87,
-   "pf": 1.43
+   "n": 17,
+   "win_rate": 58.8,
+   "avg_r": 0.227,
+   "total_r": 3.86,
+   "pf": 1.58
   },
-  "total_r_double_costs": 2.0,
+  "total_r_double_costs": 2.97,
   "distinct_specs_picked": 8,
   "step_days": 14,
   "max_picks": 4
@@ -3423,7 +3431,7 @@
     },
     {
      "market": "NQ",
-     "contract": "NQ202609",
+     "contract": "NQF-continuous",
      "day": "2026-08-06",
      "window": "PM 2-3pm",
      "bias": "bear",
@@ -5180,6 +5188,30 @@
      "r": 1.0,
      "r_net": 0.973,
      "dollars": 365.0
+    },
+    {
+     "market": "NQ",
+     "contract": "NQ",
+     "day": "2026-09-25",
+     "window": "Midday 12-1p",
+     "bias": "bear",
+     "sweep_time": "2026-09-25 12:10",
+     "sweep_px": 30950.25,
+     "fvg_time": "2026-09-25 12:20",
+     "gap_far": 30907.5,
+     "gap_near": 30907.0,
+     "entry_time": "2026-09-25 12:25",
+     "exit_time": "2026-09-25 12:25",
+     "entry": 30907.0,
+     "stop": 30950.5,
+     "target": 30863.5,
+     "risk_pts": 43.5,
+     "outcome": "target",
+     "exit": 30863.5,
+     "pts": 43.5,
+     "r": 1.0,
+     "r_net": 0.989,
+     "dollars": 860.0
     }
    ],
    "CL": [],
