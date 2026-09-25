@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Gate (pick block, sleep until start, or skip)
+      - name: Gate (pick block or skip)
         id: gate
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -59,6 +59,7 @@ jobs:
             echo "login test: bypassing gate"
             echo "block=$ARG" >> "$GITHUB_OUTPUT"
             echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "wait=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           OUT=$(python3 bot/block_gate.py "$ARG")
@@ -69,10 +70,31 @@ jobs:
           echo "block=$BLOCK" >> "$GITHUB_OUTPUT"
           if [ "$VERDICT" = "SKIP" ] || [ "$BLOCK" = "none" ] || [ -z "$BLOCK" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "wait=0" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            sleep "$VERDICT"
+            case "$VERDICT" in (''|*[!0-9]*) VERDICT=0 ;; esac
+            echo "wait=$VERDICT" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Announce run start (live heartbeat)
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          EQ=$(python3 -c "import json;print(json.load(open('data/bot_status.json')).get('equity') or 'null')" 2>/dev/null || echo null)
+          START=$(date -u -d "+${{ steps.gate.outputs.wait }} seconds" +%FT%TZ)
+          mkdir -p data
+          printf '{"utc":"%s","block":"%s","connected":false,"outcome":"running","run_id":"%s","equity":%s,"starts":"%s"}' \
+            "$(date -u +%FT%TZ)" "${{ steps.gate.outputs.block }}" "${{ github.run_id }}" "$EQ" "$START" > data/bot_status.json
+          git config user.name "sb-update-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/bot_status.json
+          if git commit -m "bot: run started (${{ steps.gate.outputs.block }})"; then
+            git pull --rebase && git push || echo "::warning::could not push start heartbeat"
+          fi
+
+      - name: Wait for block start
+        if: steps.gate.outputs.skip == 'false'
+        run: sleep "${{ steps.gate.outputs.wait }}"
 
       - name: Check secrets
         if: steps.gate.outputs.skip == 'false'
