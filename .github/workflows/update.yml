@@ -3,8 +3,10 @@ name: Update Silver Bullet backtest
 on:
   schedule:
   - cron: "7,37 * * * *"
+  push:
+    paths:
+    - "trigger-update/**"
   workflow_dispatch: {}
-
 permissions:
   contents: write
 
