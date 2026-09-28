@@ -5,3 +5,5 @@ date,proxy,market,window,bias,qty,entry,stop,target,exit,outcome,pts,r,dollars
 2026-09-25,SPY,ES,NYMEX open 9-10a,bull,519,769.68,,,769.26,stop,-0.42,-1.14,-217.98
 2026-09-25,SPY,ES,Pre-market 8-9a,bear,,770.26,771.04,767.92,,signal,,,
 2026-09-25,SPY,ES,Pre-market 8-9a,bear,519,770.26,,,767.92,target,2.34,3.0,1214.46
+2026-09-28,SPY,ES,Pre-market 8-9a,bear,,768.58,769.05,767.17,,signal,,,
+2026-09-28,SPY,ES,Pre-market 8-9a,bear,520,768.6,,,767.17,target,1.43,3.04,743.6
