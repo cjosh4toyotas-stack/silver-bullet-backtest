@@ -1,6 +1,10 @@
 date,proxy,market,window,bias,qty,entry,stop,target,exit,outcome,pts,r,dollars
 2026-09-22,SPY,ES,NYMEX open 9-10a,bear,,774.25,774.61,773.89,,signal,,,
 2026-09-22,SPY,ES,NYMEX open 9-10a,bear,516,774.26,,,774.68,stop,-0.42,-1.18,-218.72
+2026-09-25,QQQ,NQ,Midday 12-1p,bear,,744.87,745.92,743.82,,signal,,,
+2026-09-25,QQQ,NQ,Midday 12-1p,bear,537,744.91,,,744.7,time,0.21,0.2,110.69
+2026-09-25,SPY,ES,Midday 12-1p,bear,,771.08,771.26,770.72,,signal,,,
+2026-09-25,SPY,ES,Midday 12-1p,bear,518,771.08,,,771.35,stop,-0.27,-1.5,-139.86
 2026-09-25,SPY,ES,NYMEX open 9-10a,bull,,769.68,769.31,770.79,,signal,,,
 2026-09-25,SPY,ES,NYMEX open 9-10a,bull,519,769.68,,,769.26,stop,-0.42,-1.14,-217.98
 2026-09-25,SPY,ES,Pre-market 8-9a,bear,,770.26,771.04,767.92,,signal,,,
