@@ -12,6 +12,7 @@ on:
   schedule:
     - cron: "15,45 4-20 * * 1-5"   # every 30 min through the trading day (UTC)
   push:
+    branches: [main]
     paths:
       - "trigger/**"
   workflow_run:
