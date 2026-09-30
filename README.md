@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-09-30 16:59 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 21937 bars, 2026-06-08 → 2026-09-30; CL: 21725 bars, 2026-06-09 → 2026-09-30; ES: 21661 bars, 2026-06-09 → 2026-09-30
+**Last updated:** 2026-09-30 21:24 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 21987 bars, 2026-06-08 → 2026-09-30; CL: 21775 bars, 2026-06-09 → 2026-09-30; ES: 21712 bars, 2026-06-09 → 2026-09-30
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -33,7 +33,7 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 | Market | Trades | Win % | Avg R | Total R | Profit factor (R) | Net $ (1 contract) |
 |---|---|---|---|---|---|---|
 | NQ | 30 | 33.3% | -0.15 | -4.53 | 0.77 | −$3,895 |
-| CL | 8 | 25.0% | -0.25 | -2.0 | 0.67 | −$380 |
+| CL | 9 | 33.3% | 0.0 | 0.0 | 1.0 | −$230 |
 | ES | 40 | 30.0% | -0.15 | -6.13 | 0.77 | −$2,462 |
 
 ## Old vs New — the retro comparison
@@ -42,8 +42,8 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 
 | Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |
 |---|---|---|---|---|---|---|
-| OLD — base spec · all markets · all windows | 78 | 30.8% | -0.219 | -17.04 | 0.7 | -0.204 → -0.252 |
-| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 58 | 62.1% | 0.303 | 17.59 | 1.82 | 0.307 → 0.294 |
+| OLD — base spec · all markets · all windows | 79 | 31.6% | -0.192 | -15.17 | 0.73 | -0.164 → -0.257 |
+| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 58 | 62.1% | 0.316 | 18.32 | 1.85 | 0.307 → 0.335 |
 
 ## System Lab — which variant is most profitable?
 
@@ -51,17 +51,17 @@ Every mechanical variant of the strategy, run on all markets, ranked by total co
 
 | Rank | Variant | Trades | Win % | Avg R | Total R | PF | NQ avg R | ES avg R | CL avg R | IS → OOS | Robust |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 2R · breakeven stop after +1R | 78 | 26.9% | -0.115 | -8.96 | 0.8 | -0.119 (30) | -0.103 (40) | -0.157 (8) | -0.071 → -0.214 | — |
-| 2 | 1R target · stop@sweep | 78 | 46.2% | -0.149 | -11.65 | 0.74 | -0.186 (30) | -0.12 (40) | -0.157 (8) | -0.12 → -0.214 | — |
-| 3 | 2R target · stop@sweep (base) | 78 | 30.8% | -0.219 | -17.04 | 0.7 | -0.189 (30) | -0.203 (40) | -0.407 (8) | -0.204 → -0.252 | — |
-| 4 | 3R target · stop@gap edge | 165 | 25.5% | -0.112 | -18.46 | 0.87 | -0.175 (60) | -0.197 (55) | 0.058 (50) | -0.198 → 0.087 | — |
-| 5 | 2R · no time exit (hold 6.5h) | 78 | 26.9% | -0.248 | -19.37 | 0.68 | -0.238 (30) | -0.224 (40) | -0.407 (8) | -0.226 → -0.298 | — |
-| 6 | 3R target · stop@sweep | 78 | 24.4% | -0.266 | -20.73 | 0.66 | -0.24 (30) | -0.107 (40) | -1.157 (8) | -0.235 → -0.334 | — |
-| 7 | 1.5R target · stop@sweep | 78 | 32.1% | -0.321 | -25.04 | 0.55 | -0.306 (30) | -0.29 (40) | -0.532 (8) | -0.296 → -0.377 | — |
-| 8 | FADE the setup (take opposite side) | 78 | 26.9% | -0.388 | -30.23 | 0.49 | -0.411 (30) | -0.291 (40) | -0.782 (8) | -0.463 → -0.219 | — |
-| 9 | 1.5R target · stop@gap edge | 165 | 36.4% | -0.214 | -35.28 | 0.7 | -0.275 (60) | -0.349 (55) | 0.008 (50) | -0.236 → -0.163 | — |
-| 10 | 2R target · stop@gap edge | 165 | 29.1% | -0.25 | -41.28 | 0.69 | -0.358 (60) | -0.303 (55) | -0.062 (50) | -0.318 → -0.093 | — |
-| 11 | 1R target · stop@gap edge | 165 | 40.6% | -0.311 | -51.28 | 0.54 | -0.408 (60) | -0.358 (55) | -0.142 (50) | -0.379 → -0.153 | — |
+| 1 | 2R · breakeven stop after +1R | 79 | 27.8% | -0.09 | -7.08 | 0.84 | -0.119 (30) | -0.103 (40) | 0.069 (9) | -0.035 → -0.216 | — |
+| 2 | 1R target · stop@sweep | 79 | 46.8% | -0.136 | -10.78 | 0.76 | -0.186 (30) | -0.12 (40) | -0.042 (9) | -0.102 → -0.216 | — |
+| 3 | 2R target · stop@sweep (base) | 79 | 31.6% | -0.192 | -15.17 | 0.73 | -0.189 (30) | -0.203 (40) | -0.154 (9) | -0.165 → -0.254 | — |
+| 4 | 2R · no time exit (hold 6.5h) | 79 | 27.8% | -0.222 | -17.5 | 0.71 | -0.238 (30) | -0.224 (40) | -0.154 (9) | -0.188 → -0.299 | — |
+| 5 | 3R target · stop@gap edge | 165 | 25.5% | -0.113 | -18.67 | 0.87 | -0.16 (59) | -0.197 (55) | 0.032 (51) | -0.191 → 0.06 | — |
+| 6 | 3R target · stop@sweep | 79 | 24.1% | -0.277 | -21.85 | 0.65 | -0.24 (30) | -0.107 (40) | -1.154 (9) | -0.251 → -0.335 | — |
+| 7 | 1.5R target · stop@sweep | 79 | 32.9% | -0.3 | -23.67 | 0.58 | -0.306 (30) | -0.29 (40) | -0.32 (9) | -0.265 → -0.379 | — |
+| 8 | FADE the setup (take opposite side) | 79 | 26.6% | -0.397 | -31.36 | 0.48 | -0.411 (30) | -0.291 (40) | -0.82 (9) | -0.474 → -0.22 | — |
+| 9 | 1.5R target · stop@gap edge | 165 | 36.4% | -0.215 | -35.48 | 0.7 | -0.262 (59) | -0.349 (55) | -0.017 (51) | -0.229 → -0.185 | — |
+| 10 | 2R target · stop@gap edge | 165 | 29.1% | -0.251 | -41.48 | 0.69 | -0.347 (59) | -0.303 (55) | -0.085 (51) | -0.312 → -0.116 | — |
+| 11 | 1R target · stop@gap edge | 165 | 40.6% | -0.312 | -51.48 | 0.54 | -0.398 (59) | -0.358 (55) | -0.164 (51) | -0.373 → -0.175 | — |
 
 ## Oil Lab — a Silver Bullet restructured for CL
 
@@ -86,7 +86,7 @@ Simulation of adaptive re-optimization with **zero hindsight**: every 14 days, t
 
 | Trades | Win % | Avg R | **Total R** | PF | At 2× costs | Specs churned |
 |---|---|---|---|---|---|---|
-| 20 | 65.0% | 0.303 | **6.05** | 1.91 | 5.09 | 8 distinct specs |
+| 20 | 65.0% | 0.339 | **6.79** | 2.02 | 5.82 | 8 distinct specs |
 
 **Reading:** positive walk-forward is a meaningfully stronger signal than any retro number — but with this few periods it is still fragile. Watch whether it persists and whether the picked specs stabilize (low churn) as data accumulates.
 
