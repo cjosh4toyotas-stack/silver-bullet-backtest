@@ -88,6 +88,33 @@ NEW_SPECS = {
 V3_LABEL = ("NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R "
             "& London·2R · CL not traded")
 
+# v4.1 spec as the LIVE BOT trades it (on SPY/QQQ proxies), replayed here on
+# the underlying futures so the bot-vs-engine panel compares the SAME
+# playbook on both instruments. Each leg carries its own stop_frac
+# (max-stop as a fraction of price), matching bot/sb_paper_bot.py LEGS.
+V41_SPECS = {
+    "ES": [
+        {"windows": [("London 3-4am", 180)], "stop_frac": 0.002,
+         "variant": {"target_r": 3.0, "stop_mode": "sweep", "max_hold": 24}},
+        {"windows": [("Pre-market 8-9a", 480)], "stop_frac": 0.003,
+         "variant": {"target_r": 3.0, "stop_mode": "sweep", "max_hold": 24}},
+        {"windows": [("NYMEX open 9-10a", 540)], "stop_frac": 0.0015,
+         "variant": {"target_r": 3.0, "stop_mode": "sweep", "max_hold": 12,
+                     "breakeven": True}},
+        {"windows": [("Late-morning 11a-12p", 660)], "stop_frac": 0.003,
+         "variant": {"target_r": 2.5, "stop_mode": "sweep", "max_hold": 12,
+                     "breakeven": True}},
+        {"windows": [("Midday 12-1p", 720)], "stop_frac": 0.002,
+         "variant": {"target_r": 2.0, "stop_mode": "gap", "max_hold": 12}},
+        {"windows": [("Pre-settle 1:30-2:30p", 810)], "stop_frac": 0.002,
+         "variant": {"target_r": 3.0, "stop_mode": "gap", "max_hold": 36}},
+    ],
+    "NQ": [
+        {"windows": [("Midday 12-1p", 720)], "stop_frac": 0.002,
+         "variant": {"target_r": 1.0, "stop_mode": "sweep", "max_hold": 24}},
+    ],
+}
+
 # ---- Walk-forward validation ----
 # Every WF_STEP_DAYS, re-select the best specs using ONLY data before the
 # selection date (n>=8, positive total & avg R), then score the NEXT period's
@@ -973,6 +1000,24 @@ def main():
         tl.sort(key=lambda t: (t["day"], t["entry_time"]))
         new_map[m] = tl
 
+    v41_map = {}
+    for m, legs in V41_SPECS.items():
+        if m not in market_bars:
+            continue
+        tl = []
+        for leg in legs:
+            saved = dict(MARKETS[m])
+            frac = leg["stop_frac"]
+            MARKETS[m]["max_stop"] = (lambda f: (lambda p: p * f))(frac)
+            try:
+                tl += run_backtest(market_bars[m], m, market=m,
+                                   variant=leg["variant"],
+                                   windows=leg["windows"])
+            finally:
+                MARKETS[m].update(saved)
+        tl.sort(key=lambda t: (t["day"], t["entry_time"]))
+        v41_map[m] = tl
+
     res = {
         "generated_utc": now_utc,
         "rules_version": RULES_VERSION,
@@ -993,6 +1038,7 @@ def main():
         "spec_trades": {
             "old": {"NQ": trades, **market_trades},
             "new": new_map,
+            "v41": v41_map,
         },
     }
 

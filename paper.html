@@ -67,7 +67,7 @@
 </head>
 <body>
 <div class="topbar">
-  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v4.1 spec</small></span>
+  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v4.2 spec</small></span>
   <span id="brk" class="badge ok" style="display:none"></span>
   <span class="spacer"></span>
   <span class="updated" id="upd"></span>
@@ -391,9 +391,10 @@ function renderCompare(closed){
   const mech=LAST.mech;
   const mine=closed.filter(r=>r.date>=GO_LIVE);
   const mR=mine.reduce((a,r)=>a+r.R,0);
-  let eng=null;
-  if(mech && mech.spec_trades && mech.spec_trades.new){
-    const sn=mech.spec_trades.new;
+  let eng=null, engLabel="Engine (mechanical, futures data)";
+  if(mech && mech.spec_trades && (mech.spec_trades.v41 || mech.spec_trades.new)){
+    const sn=mech.spec_trades.v41 || mech.spec_trades.new;
+    if(mech.spec_trades.v41) engLabel="Engine (v4.1 spec on futures — same playbook as the bot)";
     const all=Array.isArray(sn)?sn:Object.values(sn).flat();
     const et=all.filter(t=>t && t.day>=GO_LIVE);
     eng={n:et.length, R:et.reduce((a,t)=>a+(t.r_net??t.r??0),0)};
@@ -401,7 +402,7 @@ function renderCompare(closed){
   el.innerHTML =
     `Bot (IBKR, ETF proxies): <b style="color:var(--ink-1)">${mine.length} trades · `+
     `<span class="${cls(mR)}">${(mR>=0?"+":"")+mR.toFixed(2)}R</span></b>`+
-    (eng?` &nbsp;·&nbsp; Engine (mechanical, futures data): <b style="color:var(--ink-1)">${eng.n} trades · `+
+    (eng?` &nbsp;·&nbsp; ${engLabel}: <b style="color:var(--ink-1)">${eng.n} trades · `+
     `<span class="${cls(eng.R)}">${(eng.R>=0?"+":"")+eng.R.toFixed(2)}R</span></b>`+
     ` &nbsp;·&nbsp; the gap between these two numbers is execution drift + proxy drift — `+
     `the thing this phase exists to measure.`:"");
