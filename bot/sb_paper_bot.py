@@ -2,6 +2,11 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.2 (2026-10-02): execution hygiene on top of v4.1 — uniform $1,000 risk
+per trade (notional cap raised to $2M + 0.05% minimum stop distance) and an
+off-hours spread filter (skip entries when live spread > 15% of the stop
+distance). Signal detection, targets, windows and holds are UNCHANGED.
+
 v4.1 (window scan + grid tuned 2026-09-24 on ES/NQ 5-min data,
 Jun 9 - Aug 31 train, Sep 1-24 holdout; v3 stays the spec for real futures):
 
@@ -69,7 +74,17 @@ DAILY_DD_REDUCE, DAILY_DD_HALT = 0.02, 0.03
 WEEK_DD_REDUCE, WEEK_DD_HALT = 0.05, 0.07
 PEAK_DD_HALT = 0.10
 MAX_RISK_PCT = 0.01               # hard cap: risk per trade <= 1% of equity
-MAX_POSITION_VALUE = 400_000.0    # sanity cap on notional per trade
+# v4.2: raised so the full $1,000 risk budget is reachable with stops as
+# tight as MIN_STOP_FRAC (0.05%): $1,000 / 0.0005 = $2M notional. Within
+# intraday margin on the $1M paper account. Before this, most trades were
+# notional-capped at $400k and risked far less than budgeted, which made
+# dollar P&L disagree with R.
+MAX_POSITION_VALUE = 2_000_000.0  # sanity cap on notional per trade
+MIN_STOP_FRAC = 0.0005            # v4.2: skip setups with stops tighter than
+                                  # 0.05% of price (inside spread noise, and
+                                  # unsizeable to the full risk budget)
+SPREAD_MAX_FRAC = 0.15            # v4.2: off-hours, skip entries when the
+                                  # live spread exceeds 15% of stop distance
 POLL_SECONDS = 20
 KILL_FILE = os.path.join(HERE, "STOP")
 JOURNAL = os.path.join(HERE, "sb_bot_journal.csv")
@@ -392,6 +407,30 @@ def realized_pnl_today(fills):
 
 def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0, size_factor=1.0):
     risk = setup["risk"]
+    # ---- v4.2 execution hygiene (does not change which setups are DETECTED,
+    # only refuses executions the ETF cannot honestly express) ----
+    if risk < MIN_STOP_FRAC * setup["entry"]:
+        log(f"SKIP: stop distance {risk:.3f} is tighter than "
+            f"{MIN_STOP_FRAC:.2%} of price — inside spread noise")
+        return None
+    now_ny = datetime.now(NY)
+    in_rth = (9, 30) <= (now_ny.hour, now_ny.minute) < (16, 0)
+    if not in_rth:
+        tkr = ib.reqMktData(contract, "", False, False)
+        ib.sleep(3)
+        bid, ask = tkr.bid, tkr.ask
+        ib.cancelMktData(contract)
+        bad = (bid is None or ask is None or bid != bid or ask != ask
+               or bid <= 0 or ask <= 0 or ask < bid)
+        if bad:
+            log(f"SKIP: no usable off-hours quote (bid={bid}, ask={ask})")
+            return None
+        spread = ask - bid
+        if spread > max(2 * TICK, SPREAD_MAX_FRAC * risk):
+            log(f"SKIP: off-hours spread {spread:.2f} > "
+                f"{SPREAD_MAX_FRAC:.0%} of stop distance {risk:.2f} "
+                f"(bid={bid}, ask={ask})")
+            return None
     # every position has a stop by construction (bracket); risk is capped at
     # the smaller of RISK_DOLLARS and 1% of account equity, then scaled by
     # any breaker-imposed size reduction
