@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-10-03 12:28",
+ "generated_utc": "2026-10-03 16:40",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -16,15 +16,15 @@
   },
   {
    "contract": "CL",
-   "bars": 22327,
+   "bars": 22328,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-10-02 16:55"
+   "last_ny": "2026-10-02 17:00"
   },
   {
    "contract": "ES",
-   "bars": 22262,
+   "bars": 22263,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-10-02 16:55"
+   "last_ny": "2026-10-02 17:00"
   }
  ],
  "overall": {
@@ -424,7 +424,7 @@
   },
   {
    "market": "NQ",
-   "contract": "NQF-continuous",
+   "contract": "NQ202609",
    "day": "2026-08-06",
    "window": "PM 2-3pm",
    "bias": "bear",
@@ -3550,7 +3550,7 @@
     },
     {
      "market": "NQ",
-     "contract": "NQF-continuous",
+     "contract": "NQ202609",
      "day": "2026-08-06",
      "window": "PM 2-3pm",
      "bias": "bear",
