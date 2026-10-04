@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-10-04 02:32",
+ "generated_utc": "2026-10-04 08:44",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -424,7 +424,7 @@
   },
   {
    "market": "NQ",
-   "contract": "NQF-continuous",
+   "contract": "NQ202609",
    "day": "2026-08-06",
    "window": "PM 2-3pm",
    "bias": "bear",
@@ -3550,7 +3550,7 @@
     },
     {
      "market": "NQ",
-     "contract": "NQF-continuous",
+     "contract": "NQ202609",
      "day": "2026-08-06",
      "window": "PM 2-3pm",
      "bias": "bear",
