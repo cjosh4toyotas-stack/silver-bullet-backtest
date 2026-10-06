@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-10-06 09:22",
+ "generated_utc": "2026-10-06 11:12",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 22945,
+   "bars": 22967,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-10-06 05:10"
+   "last_ny": "2026-10-06 07:00"
   },
   {
    "contract": "CL",
-   "bars": 22737,
+   "bars": 22759,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-10-06 05:10"
+   "last_ny": "2026-10-06 07:00"
   },
   {
    "contract": "ES",
-   "bars": 22671,
+   "bars": 22693,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-10-06 05:10"
+   "last_ny": "2026-10-06 07:00"
   }
  ],
  "overall": {
@@ -2314,8 +2314,8 @@
    "label": "FADE the setup (take opposite side)",
    "n": 83,
    "win_rate": 26.5,
-   "avg_r": -0.406,
-   "total_r": -33.72,
+   "avg_r": -0.404,
+   "total_r": -33.57,
    "pf": 0.47,
    "per_market": {
     "NQ": {
@@ -2328,11 +2328,11 @@
     },
     "ES": {
      "n": 41,
-     "avg_r": -0.263
+     "avg_r": -0.26
     }
    },
    "is_avg_r": -0.44,
-   "oos_avg_r": -0.331,
+   "oos_avg_r": -0.325,
    "robust": false
   },
   {

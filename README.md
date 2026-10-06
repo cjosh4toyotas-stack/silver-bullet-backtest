@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-10-06 09:22 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 22945 bars, 2026-06-08 → 2026-10-06; CL: 22737 bars, 2026-06-09 → 2026-10-06; ES: 22671 bars, 2026-06-09 → 2026-10-06
+**Last updated:** 2026-10-06 11:12 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 22967 bars, 2026-06-08 → 2026-10-06; CL: 22759 bars, 2026-06-09 → 2026-10-06; ES: 22693 bars, 2026-06-09 → 2026-10-06
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -58,7 +58,7 @@ Every mechanical variant of the strategy, run on all markets, ranked by total co
 | 5 | 1.5R target · stop@sweep | 83 | 33.7% | -0.276 | -22.93 | 0.61 | -0.224 (33) | -0.309 (41) | -0.32 (9) | -0.248 → -0.339 | — |
 | 6 | 3R target · stop@gap edge | 176 | 25.0% | -0.134 | -23.52 | 0.84 | -0.114 (64) | -0.247 (58) | -0.035 (54) | -0.181 → -0.028 | — |
 | 7 | 3R target · stop@sweep | 83 | 22.9% | -0.315 | -26.11 | 0.61 | -0.315 (33) | -0.13 (41) | -1.154 (9) | -0.208 → -0.549 | — |
-| 8 | FADE the setup (take opposite side) | 83 | 26.5% | -0.406 | -33.72 | 0.47 | -0.471 (33) | -0.263 (41) | -0.82 (9) | -0.44 → -0.331 | — |
+| 8 | FADE the setup (take opposite side) | 83 | 26.5% | -0.404 | -33.57 | 0.47 | -0.471 (33) | -0.26 (41) | -0.82 (9) | -0.44 → -0.325 | — |
 | 9 | 1.5R target · stop@gap edge | 176 | 35.2% | -0.246 | -43.33 | 0.67 | -0.255 (64) | -0.39 (58) | -0.081 (54) | -0.221 → -0.301 | — |
 | 10 | 2R target · stop@gap edge | 176 | 28.4% | -0.275 | -48.33 | 0.66 | -0.317 (64) | -0.347 (58) | -0.146 (54) | -0.287 → -0.247 | — |
 | 11 | 1R target · stop@gap edge | 176 | 39.2% | -0.343 | -60.33 | 0.51 | -0.395 (64) | -0.399 (58) | -0.22 (54) | -0.354 → -0.319 | — |
