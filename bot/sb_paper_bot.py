@@ -412,7 +412,7 @@ def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0, size_factor
     if risk < MIN_STOP_FRAC * setup["entry"]:
         log(f"SKIP: stop distance {risk:.3f} is tighter than "
             f"{MIN_STOP_FRAC:.2%} of price — inside spread noise")
-        return None
+        return "skip-stop-too-tight"
     now_ny = datetime.now(NY)
     in_rth = (9, 30) <= (now_ny.hour, now_ny.minute) < (16, 0)
     if not in_rth:
@@ -424,13 +424,13 @@ def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0, size_factor
                or bid <= 0 or ask <= 0 or ask < bid)
         if bad:
             log(f"SKIP: no usable off-hours quote (bid={bid}, ask={ask})")
-            return None
+            return "skip-no-quote"
         spread = ask - bid
         if spread > max(2 * TICK, SPREAD_MAX_FRAC * risk):
             log(f"SKIP: off-hours spread {spread:.2f} > "
                 f"{SPREAD_MAX_FRAC:.0%} of stop distance {risk:.2f} "
                 f"(bid={bid}, ask={ask})")
-            return None
+            return "skip-spread-wide"
     # every position has a stop by construction (bracket); risk is capped at
     # the smaller of RISK_DOLLARS and 1% of account equity, then scaled by
     # any breaker-imposed size reduction
@@ -440,7 +440,7 @@ def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0, size_factor
         log(f"size reduced x{size_factor} by drawdown breaker")
     if qty < 1:
         log("qty < 1 — risk too wide for the risk budget, skipping")
-        return None
+        return "skip-stop-too-wide"
     if qty * setup["entry"] > MAX_POSITION_VALUE:
         qty = int(MAX_POSITION_VALUE / setup["entry"])
         log(f"qty capped by MAX_POSITION_VALUE to {qty}")
@@ -721,6 +721,17 @@ def main():
                     continue
                 placed = place_bracket(ib, contracts[sym], setup, target_r,
                                        equity=equity, size_factor=size_factor)
+                if isinstance(placed, str):
+                    # v4.2.1: execution gate refused the order — journal the
+                    # reason so the dashboard tells the truth at a glance
+                    journal_row({
+                        "date": str(today), "proxy": sym,
+                        "market": PROXY_OF[sym], "window": wname,
+                        "bias": setup["bias"], "qty": "",
+                        "entry": setup["entry"], "stop": setup["stop"],
+                        "target": setup["target"], "exit": "",
+                        "outcome": placed, "pts": "", "r": "", "dollars": ""})
+                    placed = None
                 if placed:
                     placed.update({"symbol": sym, "window": wname,
                                    "wclose": wclose, "fill_time": None,
