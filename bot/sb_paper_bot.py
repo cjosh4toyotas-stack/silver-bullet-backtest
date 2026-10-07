@@ -2,7 +2,8 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
-v4.2 (2026-10-02): execution hygiene on top of v4.1 — uniform $1,000 risk
+v4.3 (2026-10-07): 2-cent entry shade (fill study: +31%% total R on SPY/QQQ
+bars, held on train/holdout split) on top of v4.2 execution hygiene on top of v4.1 — uniform $1,000 risk
 per trade (notional cap raised to $2M + 0.05% minimum stop distance) and an
 off-hours spread filter (skip entries when live spread > 15% of the stop
 distance). Signal detection, targets, windows and holds are UNCHANGED.
@@ -83,6 +84,12 @@ MAX_POSITION_VALUE = 2_000_000.0  # sanity cap on notional per trade
 MIN_STOP_FRAC = 0.0005            # v4.2: skip setups with stops tighter than
                                   # 0.05% of price (inside spread noise, and
                                   # unsizeable to the full risk budget)
+# v4.3: shade the entry limit 2 cents past the FVG edge. Fill study on 71
+# days of SPY/QQQ 5-min bars: fills 61%->66%, total R +22.6->+29.7, and the
+# improvement held on both halves of a Jun-Aug / Sep-Oct split. Fixes the
+# adverse-selection leak where winners retrace almost-but-not-quite to the
+# edge (losers always fill; winners were escaping unfilled).
+ENTRY_SHADE = 0.02
 SPREAD_MAX_FRAC = 0.15            # v4.2: off-hours, skip entries when the
                                   # live spread exceeds 15% of stop distance
 POLL_SECONDS = 20
@@ -708,8 +715,20 @@ def main():
                 if not setup:
                     continue
                 done[key] = True
+                # v4.3: shade the entry toward easier fills; stop stays on
+                # structure, target recomputed from the shaded entry
+                if setup["bias"] == "bull":
+                    setup["entry"] = round(setup["entry"] + ENTRY_SHADE, 2)
+                else:
+                    setup["entry"] = round(setup["entry"] - ENTRY_SHADE, 2)
+                setup["risk"] = abs(setup["entry"] - setup["stop"])
+                setup["target"] = round(
+                    setup["entry"] + target_r * setup["risk"]
+                    if setup["bias"] == "bull"
+                    else setup["entry"] - target_r * setup["risk"], 2)
                 log(f"SETUP {sym} {wname}: {setup['bias']} entry {setup['entry']} "
-                    f"stop {setup['stop']} target {setup['target']} "
+                    f"(shaded {ENTRY_SHADE:+.02f}) stop {setup['stop']} "
+                    f"target {setup['target']} "
                     f"(sweep {setup['sweep_time']:%H:%M}, fvg {setup['fvg_time']:%H:%M})")
                 journal_row({
                     "date": str(today), "proxy": sym, "market": PROXY_OF[sym],
