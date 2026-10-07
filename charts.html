@@ -239,7 +239,7 @@ function draw(){
   }
   // trade markers
   HIT=[];
-  const trades=ROWS.filter(r=>r.proxy===SYM && r.outcome && r.outcome!=="signal" && keep.has(r.date));
+  const trades=ROWS.filter(r=>r.proxy===SYM && r.outcome && r.outcome!=="signal" && !(r.outcome||"").startsWith("skip") && r.exit && keep.has(r.date));
   for(const r of trades){
     const [a,z]=(SYM==="SPY"?WIN_SPY:WIN_QQQ)[r.window]||[0,1439];
     let ei=-1, xi=-1;
@@ -278,7 +278,7 @@ function renderTrades(){
   if(!rows.length){ el.innerHTML='<div class="empty">No '+SYM+' trades yet.</div>'; return; }
   let h='<table><tr><th>Date</th><th>Window</th><th>Side</th><th class="num">Qty</th><th class="num">Entry</th><th class="num">Exit</th><th>Outcome</th><th class="num">R</th><th class="num">P&L</th></tr>';
   for(const r of [...rows].reverse()){
-    const sig=r.outcome==="signal";
+    const sig=r.outcome==="signal"||(r.outcome||"").startsWith("skip");
     const cls=r.$>0?"up":r.$<0?"dn":"";
     h+='<tr'+(sig?' class="sig"':'')+'><td>'+r.date+'</td><td>'+r.window+'</td><td>'+
        (r.bias==="bull"?"LONG":"SHORT")+'</td><td class="num">'+(r.qty||"—")+

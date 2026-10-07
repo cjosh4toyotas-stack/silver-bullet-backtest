@@ -105,7 +105,7 @@
   <div class="panel">
     <h2>Trade log</h2>
     <div style="overflow-x:auto"><table id="tbl"></table></div>
-    <div class="note">Signal rows (dimmed) are setups the bot detected and ordered;
+    <div class="note">Dimmed rows are setups the bot detected: "signal" means an order was placed, "skip-…" means the v4.2 execution gate refused it (stop too tight/wide, spread too wide off-hours, or no usable quote);
       they become closed rows when the trade resolves. Stops rest server-side at
       IBKR. Risk $1,000/trade · daily halt −$2,000 · 7-day breaker −$5,000 ·
       all-time breaker −$10,000.</div>
@@ -168,7 +168,7 @@ async function load(){
 function render(){
   const rows = LAST.rows;
   const closed = rows.filter(r=>r.outcome && r.outcome!=="signal" && r.dollars!=="");
-  const signals = rows.filter(r=>r.outcome==="signal");
+  const signals = rows.filter(r=>r.outcome==="signal"||(r.outcome||"").startsWith("skip"));
   closed.forEach(r=>{ r.$=parseFloat(r.dollars)||0; r.R=parseFloat(r.r)||0; });
 
   const net = closed.reduce((a,r)=>a+r.$,0);
@@ -416,7 +416,7 @@ function renderTable(rows){
   }
   const head=["Date","Window","Mkt","Side","Qty","Entry","Exit","Outcome","Pts","R","P&L"];
   const body=[...rows].reverse().map(r=>{
-    const sig=r.outcome==="signal";
+    const sig=r.outcome==="signal"||(r.outcome||"").startsWith("skip");
     const d=parseFloat(r.dollars);
     return `<tr class="${sig?"sig":""}">
       <td>${r.date}</td><td>${r.window}</td>
