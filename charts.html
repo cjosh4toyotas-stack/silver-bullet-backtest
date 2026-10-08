@@ -79,6 +79,9 @@
       <span class="grp" id="tfTabs"></span>
       <span class="lbl">Range</span>
       <span class="grp" id="rgTabs"></span>
+      <span class="lbl">Zoom</span>
+      <span class="grp"><span class="tb" id="zout" title="zoom out">−</span><span class="tb" id="zin" title="zoom in">+</span><span class="tb" id="zreset" title="reset to range">⟲</span></span>
+      <span class="lbl" id="zoomlbl" style="text-transform:none;letter-spacing:0"></span>
     </div>
     <div id="cwrap">
       <canvas id="chart"></canvas>
@@ -88,7 +91,7 @@
       <b>Shaded columns</b> = this symbol's live trade windows (v4.1) &nbsp;·&nbsp;
       <b>▲ / ▼</b> = bot entry (long / short) &nbsp;·&nbsp;
       <b>●</b> = exit (<span class="up">green target</span> / <span class="dn">red stop</span> / grey time-out)
-      &nbsp;·&nbsp; hover for OHLC &nbsp;·&nbsp; auto-refreshes every 60s
+      &nbsp;·&nbsp; hover for OHLC &nbsp;·&nbsp; <b>scroll</b> to zoom, <b>drag</b> to pan (pinch on touch) &nbsp;·&nbsp; auto-refreshes every 60s
     </div>
   </div>
   <div class="panel">
@@ -107,6 +110,7 @@ const WIN_SPY={"London 3-4a":[180,240],"Pre-market 8-9a":[480,540],
 const WIN_QQQ={"Midday 12-1p":[720,780]};
 const WINS=()=> SYM==="SPY" ? WIN_SPY : WIN_QQQ;
 let BARS={}, ROWS=[], STATUS=null, VIEW=[], HIT=[];
+let VS=null, VN=null, LAYOUT=null, AGG=null, AGGKEY="";   // zoom/pan view window over the aggregated series
 
 const nyParts = t => new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",
   hour12:false, year:"numeric",month:"2-digit",day:"2-digit",
@@ -179,13 +183,24 @@ function draw(){
     g.fillText("no bar data yet — the data updater publishes it through the day", W/2, H/2);
     VIEW=[]; return;
   }
-  const days=[...new Set(all.map(b=>b.d))];
-  const keep=new Set(days.slice(-RANGE));
-  let bars=aggregate(all.filter(b=>keep.has(b.d)), TF);
+  const key=SYM+"|"+TF+"|"+all.length;
+  if(AGGKEY!==key){ AGG=aggregate(all, TF); AGGKEY=key; VS=null; }
+  const total=AGG.length; if(!total){ VIEW=[]; return; }
+  if(VS===null||VN===null){               // apply the Range preset
+    const days=[...new Set(AGG.map(b=>b.d))];
+    const firstDay=days[Math.max(0,days.length-RANGE)];
+    VS=AGG.findIndex(b=>b.d===firstDay); if(VS<0) VS=0;
+    VN=total-VS;
+  }
+  VN=Math.max(8,Math.min(total,VN)); VS=Math.max(0,Math.min(total-VN,VS));
+  let bars=AGG.slice(VS,VS+VN);
+  const keep=new Set(bars.map(b=>b.d));
   const PADL=8, PADR=56, PADT=10, PADB=26;
   const iw=W-PADL-PADR, ih=H-PADT-PADB;
   const n=bars.length; if(!n){ VIEW=[]; return; }
   const bw=iw/n;
+  LAYOUT={PADL,iw,bw,total};
+  document.getElementById("zoomlbl").textContent=n+" bars · "+keep.size+" day"+(keep.size===1?"":"s");
   let lo=Infinity, hi=-Infinity;
   for(const b of bars){ if(b.l<lo)lo=b.l; if(b.h>hi)hi=b.h; }
   const pad=(hi-lo)*0.06||1; lo-=pad; hi+=pad;
@@ -283,7 +298,7 @@ function renderTrades(){
     h+='<tr'+(sig?' class="sig"':'')+'><td>'+r.date+'</td><td>'+r.window+'</td><td>'+
        (r.bias==="bull"?"LONG":"SHORT")+'</td><td class="num">'+(r.qty||"—")+
        '</td><td class="num">'+(r.entry||"—")+'</td><td class="num">'+(r.exit||"—")+
-       '</td><td>'+r.outcome+'</td><td class="num '+cls+'">'+(sig?"—":r.R.toFixed(2))+
+       '</td><td>'+((r.outcome||"").startsWith("skip")?"refused · "+r.outcome.slice(5).replace(/-/g," "):r.outcome==="signal"?"signal · order placed":r.outcome)+'</td><td class="num '+cls+'">'+(sig?"—":r.R.toFixed(2))+
        '</td><td class="num '+cls+'">'+(sig?"—":(r.$<0?"-":"+")+"$"+Math.abs(r.$).toFixed(0))+'</td></tr>';
   }
   el.innerHTML=h+'</table>';
@@ -323,7 +338,7 @@ function tabs(id, defs, cur, fn){
   for(const [val,lab] of defs){
     const s=document.createElement("span");
     s.className="tb"+(val===cur?" sel":""); s.textContent=lab;
-    s.onclick=()=>{ fn(val); refreshTabs(); draw(); renderTrades(); };
+    s.onclick=()=>{ fn(val); VS=null; VN=null; refreshTabs(); draw(); renderTrades(); };
     el.appendChild(s);
   }
 }
@@ -380,6 +395,59 @@ document.getElementById("chart").addEventListener("mousemove",ev=>{
 });
 document.getElementById("chart").addEventListener("mouseleave",()=>{
   document.getElementById("tip").style.display="none";});
+function zoomAt(frac, factor){
+  if(!LAYOUT) return;
+  const total=LAYOUT.total;
+  const center=VS+frac*VN;
+  let nVN=Math.round(VN*factor); nVN=Math.max(8,Math.min(total,nVN));
+  VS=Math.round(center-frac*nVN); VN=nVN;
+  VS=Math.max(0,Math.min(total-VN,VS));
+  draw();
+}
+const cvEl=document.getElementById("chart");
+cvEl.addEventListener("wheel",ev=>{
+  ev.preventDefault();
+  if(!LAYOUT) return;
+  const rc=cvEl.getBoundingClientRect();
+  const frac=Math.max(0,Math.min(1,(ev.clientX-rc.left-LAYOUT.PADL)/LAYOUT.iw));
+  const factor = ev.deltaY>0 ? 1.18 : 1/1.18;
+  zoomAt(frac, factor);
+},{passive:false});
+let drag=null;
+cvEl.addEventListener("mousedown",ev=>{ drag={x:ev.clientX, vs:VS}; cvEl.style.cursor="grabbing"; });
+window.addEventListener("mouseup",()=>{ drag=null; cvEl.style.cursor=""; });
+cvEl.addEventListener("mousemove",ev=>{
+  if(!drag||!LAYOUT) return;
+  const shift=Math.round((ev.clientX-drag.x)/LAYOUT.bw);
+  const nVS=Math.max(0,Math.min(LAYOUT.total-VN,drag.vs-shift));
+  if(nVS!==VS){ VS=nVS; draw(); }
+});
+let touch=null;
+cvEl.addEventListener("touchstart",ev=>{
+  if(ev.touches.length===1) touch={x:ev.touches[0].clientX, vs:VS, dist:null};
+  else if(ev.touches.length===2){
+    const dx=ev.touches[0].clientX-ev.touches[1].clientX;
+    touch={x:(ev.touches[0].clientX+ev.touches[1].clientX)/2, vs:VS, dist:Math.abs(dx), vn:VN};
+  }
+},{passive:true});
+cvEl.addEventListener("touchmove",ev=>{
+  if(!touch||!LAYOUT) return;
+  ev.preventDefault();
+  if(ev.touches.length===1 && touch.dist===null){
+    const shift=Math.round((ev.touches[0].clientX-touch.x)/LAYOUT.bw);
+    VS=Math.max(0,Math.min(LAYOUT.total-VN,touch.vs-shift)); draw();
+  }else if(ev.touches.length===2 && touch.dist){
+    const d=Math.abs(ev.touches[0].clientX-ev.touches[1].clientX);
+    const rc=cvEl.getBoundingClientRect();
+    const frac=Math.max(0,Math.min(1,(touch.x-rc.left-LAYOUT.PADL)/LAYOUT.iw));
+    const target=Math.max(8,Math.min(LAYOUT.total,Math.round(touch.vn*touch.dist/Math.max(d,1))));
+    zoomAt(frac, target/VN);
+  }
+},{passive:false});
+cvEl.addEventListener("touchend",()=>{ touch=null; },{passive:true});
+document.getElementById("zin").onclick=()=>zoomAt(0.5,1/1.5);
+document.getElementById("zout").onclick=()=>zoomAt(0.5,1.5);
+document.getElementById("zreset").onclick=()=>{ VS=null; VN=null; draw(); };
 window.addEventListener("resize",()=>{ draw(); });
 
 refreshTabs();
