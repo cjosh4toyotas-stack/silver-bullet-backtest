@@ -2,6 +2,9 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.3.1 (2026-10-08): min-stop floor 0.05%->0.03% (fill study), one journal
+row per setup (signal | skip-reason).
+
 v4.3 (2026-10-07): 2-cent entry shade (fill study: +31%% total R on SPY/QQQ
 bars, held on train/holdout split) on top of v4.2 execution hygiene on top of v4.1 — uniform $1,000 risk
 per trade (notional cap raised to $2M + 0.05% minimum stop distance) and an
@@ -81,9 +84,14 @@ MAX_RISK_PCT = 0.01               # hard cap: risk per trade <= 1% of equity
 # notional-capped at $400k and risked far less than budgeted, which made
 # dollar P&L disagree with R.
 MAX_POSITION_VALUE = 2_000_000.0  # sanity cap on notional per trade
-MIN_STOP_FRAC = 0.0005            # v4.2: skip setups with stops tighter than
-                                  # 0.05% of price (inside spread noise, and
-                                  # unsizeable to the full risk budget)
+# v4.3.1: floor lowered 0.05% -> 0.03%. The 0.05% value was chosen from
+# sizing arithmetic, not outcomes; the fill study (71 days SPY/QQQ, 2c shade)
+# shows it refusing 44 of 85 setups and costing ~14R: total R +25.6 at 0.05%,
+# +39.6 at 0.03%, better on both halves of a Jun-Aug / Sep-Oct split. Trades
+# in the 0.03-0.05% band hit the $2M notional cap and risk ~$600-1,000
+# instead of a full $1,000 - accepted; R stays honest, dollars run a bit light.
+MIN_STOP_FRAC = 0.0003            # skip setups with stops tighter than 0.03%
+                                  # of price (inside spread noise)
 # v4.3: shade the entry limit 2 cents past the FVG edge. Fill study on 71
 # days of SPY/QQQ 5-min bars: fills 61%->66%, total R +22.6->+29.7, and the
 # improvement held on both halves of a Jun-Aug / Sep-Oct split. Fixes the
@@ -730,27 +738,26 @@ def main():
                     f"(shaded {ENTRY_SHADE:+.02f}) stop {setup['stop']} "
                     f"target {setup['target']} "
                     f"(sweep {setup['sweep_time']:%H:%M}, fvg {setup['fvg_time']:%H:%M})")
-                journal_row({
+                # v4.3.1: ONE journal row per setup, written after the
+                # execution gate decides: "signal" = order actually placed,
+                # "skip-…" = refused (reason in the outcome field).
+                sig_row = {
                     "date": str(today), "proxy": sym, "market": PROXY_OF[sym],
                     "window": wname, "bias": setup["bias"], "qty": "",
                     "entry": setup["entry"], "stop": setup["stop"],
                     "target": setup["target"], "exit": "", "outcome": "signal",
-                    "pts": "", "r": "", "dollars": ""})
+                    "pts": "", "r": "", "dollars": ""}
                 if dry:
+                    journal_row(sig_row)
                     continue
                 placed = place_bracket(ib, contracts[sym], setup, target_r,
                                        equity=equity, size_factor=size_factor)
                 if isinstance(placed, str):
-                    # v4.2.1: execution gate refused the order — journal the
-                    # reason so the dashboard tells the truth at a glance
-                    journal_row({
-                        "date": str(today), "proxy": sym,
-                        "market": PROXY_OF[sym], "window": wname,
-                        "bias": setup["bias"], "qty": "",
-                        "entry": setup["entry"], "stop": setup["stop"],
-                        "target": setup["target"], "exit": "",
-                        "outcome": placed, "pts": "", "r": "", "dollars": ""})
+                    sig_row["outcome"] = placed
+                    journal_row(sig_row)
                     placed = None
+                elif placed:
+                    journal_row(sig_row)
                 if placed:
                     placed.update({"symbol": sym, "window": wname,
                                    "wclose": wclose, "fill_time": None,

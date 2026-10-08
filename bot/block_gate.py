@@ -25,6 +25,10 @@ ENDS = {"london": 370, "morning": 655, "afternoon": 995}
 HORIZON = timedelta(minutes=90)   # claim a block up to 90 min early; longer
                                   # would risk GitHub's 6h job limit killing a
                                   # run mid-trade (sleep + London block + setup)
+MIN_LEFT = timedelta(minutes=10)  # don't claim a block with <10 min left: a
+                                  # fresh run can't trade or manage anything in
+                                  # that time, and it would overwrite the day's
+                                  # real status with a no-op heartbeat
 NY = ZoneInfo("America/New_York")
 
 arg = sys.argv[1].strip().lower()
@@ -54,11 +58,11 @@ if arg == "auto":
     # earliest block that is still running or starts within the horizon
     for block in sorted(BLOCKS, key=BLOCKS.get):
         start, end = window(block)
-        if now < end and (start - now) <= HORIZON:
+        if now < end - MIN_LEFT and (start - now) <= HORIZON:
             emit(block, str(max(0, int((start - now).total_seconds()))))
     emit("none", "SKIP")
 else:
     start, end = window(arg)
-    if now >= end or (start - now) > HORIZON:
+    if now >= end - MIN_LEFT or (start - now) > HORIZON:
         emit(arg, "SKIP")
     emit(arg, str(max(0, int((start - now).total_seconds()))))
