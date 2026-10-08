@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-10-08 06:36 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 23463 bars, 2026-06-08 → 2026-10-08; CL: 23256 bars, 2026-06-09 → 2026-10-08; ES: 23188 bars, 2026-06-09 → 2026-10-08
+**Last updated:** 2026-10-08 11:12 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 23518 bars, 2026-06-08 → 2026-10-08; CL: 23311 bars, 2026-06-09 → 2026-10-08; ES: 23243 bars, 2026-06-09 → 2026-10-08
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -34,7 +34,7 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 |---|---|---|---|---|---|---|
 | NQ | 35 | 31.4% | -0.19 | -6.53 | 0.73 | −$4,530 |
 | CL | 9 | 33.3% | 0.0 | 0.0 | 1.0 | −$230 |
-| ES | 40 | 30.0% | -0.15 | -6.13 | 0.77 | −$2,638 |
+| ES | 41 | 29.3% | -0.17 | -7.13 | 0.75 | −$3,035 |
 
 ## Old vs New — the retro comparison
 
@@ -42,8 +42,8 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 
 | Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |
 |---|---|---|---|---|---|---|
-| OLD — base spec · all markets · all windows | 84 | 31.0% | -0.206 | -17.34 | 0.71 | -0.158 → -0.313 |
-| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 61 | 60.7% | 0.283 | 17.24 | 1.73 | 0.258 → 0.337 |
+| OLD — base spec · all markets · all windows | 85 | 30.6% | -0.216 | -18.36 | 0.7 | -0.173 → -0.314 |
+| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 62 | 59.7% | 0.261 | 16.21 | 1.66 | 0.228 → 0.338 |
 
 ## System Lab — which variant is most profitable?
 
@@ -51,17 +51,17 @@ Every mechanical variant of the strategy, run on all markets, ranked by total co
 
 | Rank | Variant | Trades | Win % | Avg R | Total R | PF | NQ avg R | ES avg R | CL avg R | IS → OOS | Robust |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 2R · breakeven stop after +1R | 84 | 27.4% | -0.098 | -8.25 | 0.83 | -0.138 (35) | -0.101 (40) | 0.069 (9) | -0.016 → -0.281 | — |
-| 2 | 1R target · stop@sweep | 84 | 46.4% | -0.142 | -11.94 | 0.75 | -0.196 (35) | -0.118 (40) | -0.042 (9) | -0.08 → -0.281 | — |
-| 3 | 2R target · stop@sweep (base) | 84 | 31.0% | -0.206 | -17.34 | 0.71 | -0.227 (35) | -0.201 (40) | -0.154 (9) | -0.138 → -0.358 | — |
-| 4 | 2R · no time exit (hold 6.5h) | 84 | 27.4% | -0.234 | -19.67 | 0.69 | -0.269 (35) | -0.222 (40) | -0.154 (9) | -0.179 → -0.358 | — |
-| 5 | 1.5R target · stop@sweep | 84 | 33.3% | -0.284 | -23.84 | 0.6 | -0.269 (35) | -0.288 (40) | -0.32 (9) | -0.242 → -0.377 | — |
-| 6 | 3R target · stop@gap edge | 180 | 25.0% | -0.133 | -23.86 | 0.84 | -0.097 (67) | -0.263 (59) | -0.035 (54) | -0.171 → -0.048 | — |
-| 7 | 3R target · stop@sweep | 84 | 22.6% | -0.322 | -27.02 | 0.6 | -0.356 (35) | -0.105 (40) | -1.154 (9) | -0.203 → -0.587 | — |
-| 8 | FADE the setup (take opposite side) | 84 | 28.6% | -0.339 | -28.48 | 0.55 | -0.331 (35) | -0.238 (40) | -0.82 (9) | -0.45 → -0.091 | — |
-| 9 | 1.5R target · stop@gap edge | 180 | 35.0% | -0.251 | -45.17 | 0.66 | -0.253 (67) | -0.404 (59) | -0.081 (54) | -0.222 → -0.316 | — |
-| 10 | 2R target · stop@gap edge | 180 | 28.3% | -0.276 | -49.67 | 0.66 | -0.305 (67) | -0.361 (59) | -0.146 (54) | -0.282 → -0.263 | — |
-| 11 | 1R target · stop@gap edge | 180 | 38.9% | -0.348 | -62.67 | 0.5 | -0.395 (67) | -0.412 (59) | -0.22 (54) | -0.355 → -0.334 | — |
+| 1 | 2R · breakeven stop after +1R | 85 | 27.1% | -0.097 | -8.27 | 0.83 | -0.138 (35) | -0.099 (41) | 0.069 (9) | -0.016 → -0.272 | — |
+| 2 | 1R target · stop@sweep | 85 | 47.1% | -0.129 | -10.97 | 0.77 | -0.196 (35) | -0.091 (41) | -0.042 (9) | -0.08 → -0.234 | — |
+| 3 | 2R target · stop@sweep (base) | 85 | 30.6% | -0.216 | -18.36 | 0.7 | -0.227 (35) | -0.221 (41) | -0.154 (9) | -0.138 → -0.383 | — |
+| 4 | 2R · no time exit (hold 6.5h) | 85 | 27.1% | -0.243 | -20.69 | 0.68 | -0.269 (35) | -0.242 (41) | -0.154 (9) | -0.179 → -0.383 | — |
+| 5 | 3R target · stop@gap edge | 182 | 25.3% | -0.121 | -22.0 | 0.86 | -0.052 (68) | -0.276 (60) | -0.035 (54) | -0.154 → -0.047 | — |
+| 6 | 1.5R target · stop@sweep | 85 | 32.9% | -0.293 | -24.86 | 0.59 | -0.269 (35) | -0.306 (41) | -0.32 (9) | -0.242 → -0.401 | — |
+| 7 | 3R target · stop@sweep | 85 | 22.4% | -0.33 | -28.04 | 0.59 | -0.356 (35) | -0.127 (41) | -1.154 (9) | -0.203 → -0.603 | — |
+| 8 | FADE the setup (take opposite side) | 85 | 28.2% | -0.347 | -29.5 | 0.54 | -0.331 (35) | -0.257 (41) | -0.82 (9) | -0.45 → -0.125 | — |
+| 9 | 1.5R target · stop@gap edge | 182 | 35.2% | -0.246 | -44.81 | 0.67 | -0.228 (68) | -0.415 (60) | -0.081 (54) | -0.216 → -0.314 | — |
+| 10 | 2R target · stop@gap edge | 182 | 28.6% | -0.268 | -48.81 | 0.67 | -0.272 (68) | -0.373 (60) | -0.146 (54) | -0.271 → -0.261 | — |
+| 11 | 1R target · stop@gap edge | 182 | 39.6% | -0.334 | -60.81 | 0.52 | -0.375 (68) | -0.39 (60) | -0.22 (54) | -0.351 → -0.297 | — |
 
 ## Oil Lab — a Silver Bullet restructured for CL
 
