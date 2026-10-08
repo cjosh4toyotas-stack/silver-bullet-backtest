@@ -158,6 +158,13 @@ jobs:
       - name: Write connection status
         if: always() && steps.gate.outputs.skip == 'false'
         run: |
+          # a run that found its block already over never tried to connect;
+          # keep the day's real status instead of overwriting it with a no-op
+          if grep -q "already over" bot/sb_bot.log 2>/dev/null; then
+            echo "no-op run (block already over) - keeping previous status"
+            git checkout -- data/bot_status.json 2>/dev/null || true
+            exit 0
+          fi
           CONN=false
           grep -q "Connected. Paper account" bot/sb_bot.log 2>/dev/null && CONN=true
           EQ=$(cat bot/sb_equity.txt 2>/dev/null || true)
