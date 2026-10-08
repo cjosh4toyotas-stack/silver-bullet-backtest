@@ -29,4 +29,11 @@ date,proxy,market,window,bias,qty,entry,stop,target,exit,outcome,pts,r,dollars
 2026-10-07,SPY,ES,Pre-market 8-9a,bull,,776.3,775.57,778.49,,skip-no-quote,,,
 2026-10-07,SPY,ES,Pre-settle 1:30-2:30p,bear,,777.2,777.39,776.63,,signal,,,
 2026-10-07,SPY,ES,Pre-settle 1:30-2:30p,bear,,777.2,777.39,776.63,,skip-stop-too-tight,,,
+2026-10-08,QQQ,NQ,Midday 12-1p,bull,,753.68,752.28,755.08,,signal,,,
+2026-10-08,QQQ,NQ,Midday 12-1p,bull,714,753.68,,,752.23,stop,-1.45,-1.04,-1035.34
+2026-10-08,SPY,ES,Late-morning 11a-12p,bear,,774.46,776.57,769.18,,signal,,,
+2026-10-08,SPY,ES,Late-morning 11a-12p,bear,473,774.57,,,776.58,stop,-2.01,-0.95,-952.33
+2026-10-08,SPY,ES,Midday 12-1p,bull,,774.63,774.51,774.87,,skip-stop-too-tight,,,
 2026-10-08,SPY,ES,Pre-market 8-9a,bear,,773.95,774.57,772.09,,skip-no-quote,,,
+2026-10-08,SPY,ES,Pre-settle 1:30-2:30p,bull,,772.37,772.02,773.42,,signal,,,
+2026-10-08,SPY,ES,Pre-settle 1:30-2:30p,bull,2589,771.7,,,771.67,stop,-0.03,-0.08,-74.88
