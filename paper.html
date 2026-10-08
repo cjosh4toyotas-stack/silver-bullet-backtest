@@ -67,7 +67,7 @@
 </head>
 <body>
 <div class="topbar">
-  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v4.2 spec</small></span>
+  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v4.3.1 spec</small></span>
   <span id="brk" class="badge ok" style="display:none"></span>
   <span class="spacer"></span>
   <span class="updated" id="upd"></span>
@@ -424,7 +424,7 @@ function renderTable(rows){
       <td>${r.bias==="bull"?"LONG":(r.bias==="bear"?"SHORT":"—")}</td>
       <td class="num">${r.qty||"—"}</td>
       <td class="num">${r.entry}</td><td class="num">${r.exit||"—"}</td>
-      <td>${sig?"signal · order placed":(r.outcome==="halted"?"⛔ breaker halt ("+r.window+")":r.outcome)}</td>
+      <td>${r.outcome==="signal"?"signal · order placed":(r.outcome||"").startsWith("skip")?"refused · "+r.outcome.slice(5).replace(/-/g," "):(r.outcome==="halted"?"⛔ breaker halt ("+r.window+")":r.outcome)}</td>
       <td class="num">${r.pts||"—"}</td><td class="num">${r.r||"—"}</td>
       <td class="num ${isNaN(d)?"":cls(d)}">${isNaN(d)?"—":fmt$(d)}</td></tr>`;
   }).join("");
