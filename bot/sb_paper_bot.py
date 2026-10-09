@@ -2,6 +2,9 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.4.1 (2026-10-09): off-hours "no quote" no longer refuses the order (it was
+blocking pre-market, the best live window, since Oct 1).
+
 v4.4 (2026-10-09): "earn your size" - each window trades at half risk while
 its cumulative LIVE R is negative, full risk once it is back >= 0.
 
@@ -461,10 +464,15 @@ def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0, size_factor
         bad = (bid is None or ask is None or bid != bid or ask != ask
                or bid <= 0 or ask <= 0 or ask < bid)
         if bad:
-            log(f"SKIP: no usable off-hours quote (bid={bid}, ask={ask})")
-            return "skip-no-quote"
-        spread = ask - bid
-        if spread > max(2 * TICK, SPREAD_MAX_FRAC * risk):
+            # v4.4.1: no quote is not the same as a wide spread. The paper
+            # feed often returns no bid/ask at 8am; refusing on that blocked
+            # the pre-market window (the bot's best live window) for days.
+            # Proceed with the limit order - a limit cannot fill worse than
+            # its price - and log that the spread was unverified.
+            log(f"NOTE: no usable off-hours quote (bid={bid}, ask={ask}) - "
+                f"spread unverified, proceeding with limit order")
+        elif (ask - bid) > max(2 * TICK, SPREAD_MAX_FRAC * risk):
+            spread = ask - bid
             log(f"SKIP: off-hours spread {spread:.2f} > "
                 f"{SPREAD_MAX_FRAC:.0%} of stop distance {risk:.2f} "
                 f"(bid={bid}, ask={ask})")
