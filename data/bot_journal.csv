@@ -37,3 +37,6 @@ date,proxy,market,window,bias,qty,entry,stop,target,exit,outcome,pts,r,dollars
 2026-10-08,SPY,ES,Pre-market 8-9a,bear,,773.95,774.57,772.09,,skip-no-quote,,,
 2026-10-08,SPY,ES,Pre-settle 1:30-2:30p,bull,,772.37,772.02,773.42,,signal,,,
 2026-10-08,SPY,ES,Pre-settle 1:30-2:30p,bull,2589,771.7,,,771.67,stop,-0.03,-0.08,-74.88
+2026-10-09,SPY,ES,NYMEX open 9-10a,bull,,776.45,776.17,777.29,,signal,,,
+2026-10-09,SPY,ES,NYMEX open 9-10a,bull,2575,776.45,,,776.17,stop,-0.27,-0.98,-703.18
+2026-10-09,SPY,ES,Pre-market 8-9a,bear,,777.25,777.79,775.63,,skip-no-quote,,,
