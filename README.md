@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-10-09 11:12 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 23793 bars, 2026-06-08 → 2026-10-09; CL: 23587 bars, 2026-06-09 → 2026-10-09; ES: 23518 bars, 2026-06-09 → 2026-10-09
+**Last updated:** 2026-10-09 14:19 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 23830 bars, 2026-06-08 → 2026-10-09; CL: 23624 bars, 2026-06-09 → 2026-10-09; ES: 23555 bars, 2026-06-09 → 2026-10-09
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -43,7 +43,7 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 | Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |
 |---|---|---|---|---|---|---|
 | OLD — base spec · all markets · all windows | 85 | 30.6% | -0.216 | -18.36 | 0.7 | -0.173 → -0.314 |
-| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 64 | 57.8% | 0.221 | 14.17 | 1.53 | 0.245 → 0.17 |
+| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 65 | 58.5% | 0.232 | 15.1 | 1.57 | 0.238 → 0.219 |
 
 ## System Lab — which variant is most profitable?
 

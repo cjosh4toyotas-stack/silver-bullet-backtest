@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-10-09 11:12",
+ "generated_utc": "2026-10-09 14:19",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 23793,
+   "bars": 23830,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-10-09 07:00"
+   "last_ny": "2026-10-09 10:05"
   },
   {
    "contract": "CL",
-   "bars": 23587,
+   "bars": 23624,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-10-09 07:00"
+   "last_ny": "2026-10-09 10:05"
   },
   {
    "contract": "ES",
-   "bars": 23518,
+   "bars": 23555,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-10-09 07:00"
+   "last_ny": "2026-10-09 10:05"
   }
  ],
  "overall": {
@@ -2939,13 +2939,13 @@
   },
   "new": {
    "label": "NEW v3 (sel. Sep 19) \u2014 NQ midday\u00b71R \u00b7 ES open+pre-settle\u00b71R & London\u00b72R \u00b7 CL not traded",
-   "n": 64,
-   "win_rate": 57.8,
-   "avg_r": 0.221,
-   "total_r": 14.17,
-   "pf": 1.53,
-   "is_avg_r": 0.245,
-   "oos_avg_r": 0.17,
+   "n": 65,
+   "win_rate": 58.5,
+   "avg_r": 0.232,
+   "total_r": 15.1,
+   "pf": 1.57,
+   "is_avg_r": 0.238,
+   "oos_avg_r": 0.219,
    "curve": [
     {
      "day": "2026-06-09",
@@ -3202,6 +3202,10 @@
     {
      "day": "2026-10-08",
      "cum_r": 14.17
+    },
+    {
+     "day": "2026-10-09",
+     "cum_r": 15.1
     }
    ]
   }
@@ -6978,6 +6982,30 @@
      "r": -1.0,
      "r_net": -1.035,
      "dollars": -297.5
+    },
+    {
+     "market": "ES",
+     "contract": "ES",
+     "day": "2026-10-09",
+     "window": "NYMEX open 9-10a",
+     "bias": "bull",
+     "sweep_time": "2026-10-09 08:45",
+     "sweep_px": 7837.0,
+     "fvg_time": "2026-10-09 09:00",
+     "gap_far": 7839.5,
+     "gap_near": 7840.0,
+     "entry_time": "2026-10-09 09:05",
+     "exit_time": "2026-10-09 09:05",
+     "entry": 7840.0,
+     "stop": 7836.75,
+     "target": 7843.25,
+     "risk_pts": 3.25,
+     "outcome": "target",
+     "exit": 7843.25,
+     "pts": 3.25,
+     "r": 1.0,
+     "r_net": 0.938,
+     "dollars": 152.5
     }
    ]
   },
@@ -9670,6 +9698,54 @@
      "r": -1.0,
      "r_net": -1.062,
      "dollars": -172.5
+    },
+    {
+     "market": "ES",
+     "contract": "ES",
+     "day": "2026-10-09",
+     "window": "Pre-market 8-9a",
+     "bias": "bear",
+     "sweep_time": "2026-10-09 08:00",
+     "sweep_px": 7853.75,
+     "fvg_time": "2026-10-09 08:05",
+     "gap_far": 7849.5,
+     "gap_near": 7848.75,
+     "entry_time": "2026-10-09 08:10",
+     "exit_time": "2026-10-09 08:50",
+     "entry": 7848.75,
+     "stop": 7854.0,
+     "target": 7833.0,
+     "risk_pts": 5.25,
+     "outcome": "target",
+     "exit": 7833.0,
+     "pts": 15.75,
+     "r": 3.0,
+     "r_net": 2.962,
+     "dollars": 777.5
+    },
+    {
+     "market": "ES",
+     "contract": "ES",
+     "day": "2026-10-09",
+     "window": "NYMEX open 9-10a",
+     "bias": "bull",
+     "sweep_time": "2026-10-09 08:45",
+     "sweep_px": 7837.0,
+     "fvg_time": "2026-10-09 09:00",
+     "gap_far": 7839.5,
+     "gap_near": 7840.0,
+     "entry_time": "2026-10-09 09:05",
+     "exit_time": "2026-10-09 09:10",
+     "entry": 7840.0,
+     "stop": 7840.0,
+     "target": 7849.75,
+     "risk_pts": 3.25,
+     "outcome": "breakeven",
+     "exit": 7840.0,
+     "pts": 0.0,
+     "r": 0.0,
+     "r_net": -0.062,
+     "dollars": -10.0
     }
    ],
    "NQ": [
