@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-10-09 19:42",
+ "generated_utc": "2026-10-09 23:59",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 23895,
+   "bars": 23912,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-10-09 15:30"
+   "last_ny": "2026-10-09 16:55"
   },
   {
    "contract": "CL",
-   "bars": 23689,
+   "bars": 23706,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-10-09 15:30"
+   "last_ny": "2026-10-09 16:55"
   },
   {
    "contract": "ES",
-   "bars": 23620,
+   "bars": 23637,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-10-09 15:30"
+   "last_ny": "2026-10-09 16:55"
   }
  ],
  "overall": {
@@ -2356,6 +2356,32 @@
    "robust": false
   },
   {
+   "id": "fade",
+   "label": "FADE the setup (take opposite side)",
+   "n": 86,
+   "win_rate": 29.1,
+   "avg_r": -0.331,
+   "total_r": -28.47,
+   "pf": 0.55,
+   "per_market": {
+    "NQ": {
+     "n": 36,
+     "avg_r": -0.293
+    },
+    "CL": {
+     "n": 9,
+     "avg_r": -0.82
+    },
+    "ES": {
+     "n": 41,
+     "avg_r": -0.257
+    }
+   },
+   "is_avg_r": -0.438,
+   "oos_avg_r": -0.098,
+   "robust": false
+  },
+  {
    "id": "t30-sweep",
    "label": "3R target \u00b7 stop@sweep",
    "n": 86,
@@ -2379,32 +2405,6 @@
    },
    "is_avg_r": -0.216,
    "oos_avg_r": -0.604,
-   "robust": false
-  },
-  {
-   "id": "fade",
-   "label": "FADE the setup (take opposite side)",
-   "n": 86,
-   "win_rate": 29.1,
-   "avg_r": -0.339,
-   "total_r": -29.13,
-   "pf": 0.54,
-   "per_market": {
-    "NQ": {
-     "n": 36,
-     "avg_r": -0.311
-    },
-    "CL": {
-     "n": 9,
-     "avg_r": -0.82
-    },
-    "ES": {
-     "n": 41,
-     "avg_r": -0.257
-    }
-   },
-   "is_avg_r": -0.438,
-   "oos_avg_r": -0.123,
    "robust": false
   },
   {
