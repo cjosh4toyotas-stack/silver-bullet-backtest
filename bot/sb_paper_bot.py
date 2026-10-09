@@ -2,6 +2,9 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.4 (2026-10-09): "earn your size" - each window trades at half risk while
+its cumulative LIVE R is negative, full risk once it is back >= 0.
+
 v4.3.1 (2026-10-08): min-stop floor 0.05%->0.03% (fill study), one journal
 row per setup (signal | skip-reason).
 
@@ -297,6 +300,26 @@ def log_breaker(kind, detail, equity, closed_positions, halt_row=False):
                          "market": "-", "window": kind, "bias": "-", "qty": "",
                          "entry": "", "stop": "", "target": "", "exit": "",
                          "outcome": "halted", "pts": "", "r": "", "dollars": ""})
+
+
+def window_live_r(sym, wname):
+    """v4.4: cumulative live R and trade count for one proxy/window pair,
+    from the merged journal (closed trades only)."""
+    n, tot = 0, 0.0
+    for r in journal_rows():
+        o = str(r.get("outcome") or "")
+        if (r.get("proxy") == sym and r.get("window") == wname
+                and o not in ("", "signal", "halted") and not o.startswith("skip")
+                and str(r.get("dollars") or "") != ""):
+            try:
+                tot += float(r.get("r") or 0); n += 1
+            except ValueError:
+                pass
+    return n, tot
+
+
+EARN_SIZE_MULT = 0.5   # v4.4: windows with a negative live record trade at
+                       # half risk until their cumulative live R is back >= 0
 
 
 def risk_state(equity, intraday_pnl=0.0):
@@ -750,8 +773,16 @@ def main():
                 if dry:
                     journal_row(sig_row)
                     continue
+                # v4.4 "earn your size": a window with a negative live
+                # record trades at half risk until it earns its way back
+                n_live, r_live = window_live_r(sym, wname)
+                wmult = 1.0 if r_live >= 0 else EARN_SIZE_MULT
+                if wmult < 1.0:
+                    log(f"EARN-YOUR-SIZE: {sym} {wname} live {r_live:+.2f}R "
+                        f"over {n_live} trades -> risk x{wmult}")
                 placed = place_bracket(ib, contracts[sym], setup, target_r,
-                                       equity=equity, size_factor=size_factor)
+                                       equity=equity,
+                                       size_factor=size_factor * wmult)
                 if isinstance(placed, str):
                     sig_row["outcome"] = placed
                     journal_row(sig_row)
