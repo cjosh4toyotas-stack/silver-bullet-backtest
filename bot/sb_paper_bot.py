@@ -2,6 +2,10 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.5 (2026-10-13): regular-session windows detect on 9:30-16:00 bars only,
+matching the validated replay (live bot had been reading pre-market bars
+into its sweep lookback -> different setups than the ones that tested positive).
+
 v4.4.1 (2026-10-09): off-hours "no quote" no longer refuses the order (it was
 blocking pre-market, the best live window, since Oct 1).
 
@@ -321,6 +325,9 @@ def window_live_r(sym, wname):
     return n, tot
 
 
+RTH_FILTER_FROM_WMIN = 540   # v4.5: windows opening at/after 9:00 ET use
+                             # 9:30-16:00 bars only (London & pre-market keep
+                             # extended-hours bars - they need them)
 EARN_SIZE_MULT = 0.5   # v4.4: windows with a negative live record trade at
                        # half risk until their cumulative live R is back >= 0
 
@@ -747,6 +754,14 @@ def main():
                 except Exception as e:
                     log(f"bar fetch failed for {sym}: {e}")
                     continue
+                # v4.5: regular-session windows detect on regular-session
+                # bars ONLY, exactly like the validated replay. Feeding the
+                # 2h sweep lookback with pre-market bars produced setups the
+                # validation never saw (3 phantom losers, 3 missed winners
+                # and 2 mis-placed entries between 10/1 and 10/12).
+                if wmin >= RTH_FILTER_FROM_WMIN:
+                    bars = [b for b in bars
+                            if (9, 30) <= (b["ny"].hour, b["ny"].minute) < (16, 0)]
                 sf = leg["stop_frac"]
                 setup = detect_setup(bars, today, wmin, target_r,
                                      max_stop_fn=lambda p, _sf=sf: p * _sf,
