@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-10-14 05:21 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 24541 bars, 2026-06-08 → 2026-10-14; CL: 24337 bars, 2026-06-09 → 2026-10-14; ES: 24266 bars, 2026-06-09 → 2026-10-14
+**Last updated:** 2026-10-14 10:33 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 24609 bars, 2026-06-08 → 2026-10-14; CL: 24405 bars, 2026-06-09 → 2026-10-14; ES: 24334 bars, 2026-06-09 → 2026-10-14
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -34,7 +34,7 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 |---|---|---|---|---|---|---|
 | NQ | 37 | 29.7% | -0.23 | -8.53 | 0.67 | −$5,645 |
 | CL | 9 | 33.3% | 0.0 | 0.0 | 1.0 | −$230 |
-| ES | 42 | 31.0% | -0.16 | -6.56 | 0.77 | −$2,758 |
+| ES | 42 | 31.0% | -0.16 | -6.56 | 0.77 | −$2,632 |
 
 ## Old vs New — the retro comparison
 
@@ -42,8 +42,8 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 
 | Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |
 |---|---|---|---|---|---|---|
-| OLD — base spec · all markets · all windows | 88 | 30.7% | -0.225 | -19.83 | 0.69 | -0.202 → -0.279 |
-| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 67 | 58.2% | 0.225 | 15.08 | 1.55 | 0.254 → 0.162 |
+| OLD — base spec · all markets · all windows | 88 | 30.7% | -0.226 | -19.91 | 0.69 | -0.183 → -0.323 |
+| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 67 | 56.7% | 0.195 | 13.08 | 1.46 | 0.21 → 0.162 |
 
 ## System Lab — which variant is most profitable?
 
@@ -51,17 +51,17 @@ Every mechanical variant of the strategy, run on all markets, ranked by total co
 
 | Rank | Variant | Trades | Win % | Avg R | Total R | PF | NQ avg R | ES avg R | CL avg R | IS → OOS | Robust |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 2R · breakeven stop after +1R | 88 | 27.3% | -0.111 | -9.74 | 0.81 | -0.186 (37) | -0.083 (42) | 0.069 (9) | -0.05 → -0.241 | — |
-| 2 | 1R target · stop@sweep | 88 | 46.6% | -0.136 | -12.01 | 0.76 | -0.24 (37) | -0.065 (42) | -0.042 (9) | -0.112 → -0.19 | — |
-| 3 | 2R target · stop@sweep (base) | 88 | 30.7% | -0.225 | -19.83 | 0.69 | -0.269 (37) | -0.202 (42) | -0.154 (9) | -0.168 → -0.348 | — |
-| 4 | 2R · no time exit (hold 6.5h) | 88 | 26.1% | -0.262 | -23.04 | 0.66 | -0.309 (37) | -0.243 (42) | -0.154 (9) | -0.207 → -0.379 | — |
-| 5 | 3R target · stop@gap edge | 185 | 24.9% | -0.139 | -25.65 | 0.84 | -0.088 (70) | -0.288 (61) | -0.035 (54) | -0.167 → -0.076 | — |
-| 6 | 1.5R target · stop@sweep | 88 | 33.0% | -0.299 | -26.33 | 0.58 | -0.31 (37) | -0.285 (42) | -0.32 (9) | -0.268 → -0.366 | — |
-| 7 | FADE the setup (take opposite side) | 88 | 29.5% | -0.312 | -27.49 | 0.58 | -0.232 (37) | -0.275 (42) | -0.82 (9) | -0.448 → -0.023 | — |
-| 8 | 3R target · stop@sweep | 88 | 22.7% | -0.335 | -29.51 | 0.58 | -0.392 (37) | -0.11 (42) | -1.154 (9) | -0.23 → -0.561 | — |
-| 9 | 1.5R target · stop@gap edge | 185 | 35.7% | -0.235 | -43.46 | 0.68 | -0.224 (70) | -0.383 (61) | -0.081 (54) | -0.228 → -0.251 | — |
-| 10 | 2R target · stop@gap edge | 185 | 28.6% | -0.267 | -49.46 | 0.67 | -0.26 (70) | -0.383 (61) | -0.146 (54) | -0.282 → -0.234 | — |
-| 11 | 1R target · stop@gap edge | 185 | 40.0% | -0.327 | -60.46 | 0.53 | -0.374 (70) | -0.367 (61) | -0.22 (54) | -0.36 → -0.251 | — |
+| 1 | 2R · breakeven stop after +1R | 88 | 27.3% | -0.112 | -9.83 | 0.81 | -0.186 (37) | -0.085 (42) | 0.069 (9) | -0.033 → -0.28 | — |
+| 2 | 1R target · stop@sweep | 88 | 46.6% | -0.137 | -12.09 | 0.76 | -0.24 (37) | -0.067 (42) | -0.042 (9) | -0.078 → -0.265 | — |
+| 3 | 2R target · stop@sweep (base) | 88 | 30.7% | -0.226 | -19.91 | 0.69 | -0.269 (37) | -0.204 (42) | -0.154 (9) | -0.168 → -0.351 | — |
+| 4 | 2R · no time exit (hold 6.5h) | 88 | 26.1% | -0.263 | -23.12 | 0.66 | -0.309 (37) | -0.245 (42) | -0.154 (9) | -0.207 → -0.383 | — |
+| 5 | 3R target · stop@gap edge | 184 | 25.0% | -0.133 | -24.51 | 0.84 | -0.088 (70) | -0.274 (60) | -0.035 (54) | -0.167 → -0.057 | — |
+| 6 | 1.5R target · stop@sweep | 88 | 33.0% | -0.3 | -26.41 | 0.58 | -0.31 (37) | -0.287 (42) | -0.32 (9) | -0.268 → -0.369 | — |
+| 7 | 3R target · stop@sweep | 88 | 22.7% | -0.336 | -29.6 | 0.58 | -0.392 (37) | -0.112 (42) | -1.154 (9) | -0.23 → -0.564 | — |
+| 8 | FADE the setup (take opposite side) | 88 | 28.4% | -0.347 | -30.57 | 0.54 | -0.232 (37) | -0.348 (42) | -0.82 (9) | -0.497 → -0.026 | — |
+| 9 | 1.5R target · stop@gap edge | 184 | 35.9% | -0.23 | -42.33 | 0.69 | -0.224 (70) | -0.371 (60) | -0.081 (54) | -0.228 → -0.235 | — |
+| 10 | 2R target · stop@gap edge | 184 | 28.8% | -0.263 | -48.33 | 0.68 | -0.26 (70) | -0.371 (60) | -0.146 (54) | -0.283 → -0.217 | — |
+| 11 | 1R target · stop@gap edge | 184 | 40.2% | -0.322 | -59.33 | 0.53 | -0.374 (70) | -0.354 (60) | -0.22 (54) | -0.361 → -0.235 | — |
 
 ## Oil Lab — a Silver Bullet restructured for CL
 
@@ -86,7 +86,7 @@ Simulation of adaptive re-optimization with **zero hindsight**: every 14 days, t
 
 | Trades | Win % | Avg R | **Total R** | PF | At 2× costs | Specs churned |
 |---|---|---|---|---|---|---|
-| 26 | 57.7% | 0.18 | **4.68** | 1.44 | 3.6 | 8 distinct specs |
+| 23 | 52.2% | 0.075 | **1.72** | 1.16 | 0.7 | 8 distinct specs |
 
 **Reading:** positive walk-forward is a meaningfully stronger signal than any retro number — but with this few periods it is still fragile. Watch whether it persists and whether the picked specs stabilize (low churn) as data accumulates.
 
