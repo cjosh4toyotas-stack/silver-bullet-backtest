@@ -2,6 +2,18 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.6 (2026-10-16): off-hours stop protection. 10/14 pre-market: the bracket
+stop (a plain STP) could not execute before 9:30 - IBKR will not run a
+triggered stop-market for US stocks outside regular hours - so a 1R loser
+was held until the open and closed at -4.36R (-$4,361), which then tripped
+the 7-day breaker. Fixes (execution only; detection unchanged):
+  * off-hours brackets use a STOP-LIMIT (limit 0.5R past the trigger)
+  * software stop: every poll, if price is past the stop-limit's limit
+    (the resting stop failed), cancel the bracket and exit for real
+  * refuse an entry whose stop is already breached (skip-invalidated)
+  * off-hours flatten/time-exit use marketable limits, not market orders
+  * a breaker halt is written to sb_halt.txt so the dashboard says so
+
 v4.5 (2026-10-13): regular-session windows detect on 9:30-16:00 bars only,
 matching the validated replay (live bot had been reading pre-market bars
 into its sweep lookback -> different setups than the ones that tested positive).
@@ -58,10 +70,10 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 try:
-    from ib_async import IB, Stock, LimitOrder, StopOrder, MarketOrder, util
+    from ib_async import IB, Stock, LimitOrder, StopOrder, StopLimitOrder, MarketOrder, util
 except ImportError:
     try:
-        from ib_insync import IB, Stock, LimitOrder, StopOrder, MarketOrder, util
+        from ib_insync import IB, Stock, LimitOrder, StopOrder, StopLimitOrder, MarketOrder, util
     except ImportError:
         sys.exit("Install the API library first:  pip3 install ib_async")
 
@@ -118,6 +130,47 @@ JOURNAL = os.path.join(HERE, "sb_bot_journal.csv")
 LOOKBACK = 24            # bars (2h of 5-min) for the sweep reference extreme
 MAX_HOLD = 24            # bars (2h) default max hold after fill
 TICK = 0.01              # ETF tick
+# v4.6 off-hours protection
+STOP_CUSHION_R = 0.5     # stop-limit's limit sits 0.5R past its trigger
+OFFHOURS_EXIT_SLIP = 0.003   # off-hours exits: limit 0.3% through last price
+HALT_FILE = os.path.join(HERE, "sb_halt.txt")
+
+
+def is_rth(now=None):
+    now = now or datetime.now(NY)
+    return now.weekday() < 5 and (9, 30) <= (now.hour, now.minute) < (16, 0)
+
+
+def live_px(tk):
+    """Last trade price from a streaming ticker, or None. Never falls back
+    to tk.close - that is YESTERDAY's close and would fake a stop-out."""
+    if tk is None:
+        return None
+    v = tk.last
+    if v is not None and v == v and v > 0:
+        return float(v)
+    return None
+
+
+def exit_order(action, qty, ref_px=None):
+    """Market order in regular hours. Off-hours IBKR rejects/holds market
+    orders on US stocks, so use a marketable limit through the last price."""
+    if is_rth() or not ref_px:
+        o = MarketOrder(action, qty)
+    else:
+        px = ref_px * (1 + OFFHOURS_EXIT_SLIP) if action == "BUY" \
+            else ref_px * (1 - OFFHOURS_EXIT_SLIP)
+        o = LimitOrder(action, qty, round(px, 2))
+    o.outsideRth = True
+    return o
+
+
+def write_halt(reason):
+    try:
+        with open(HALT_FILE, "w") as f:
+            f.write(reason.replace("\n", " ")[:300])
+    except Exception:
+        pass
 
 def min_gap(p):  return max(0.01, p * 1.7e-5)    # relative thresholds, as ES/CL
 def max_stop(p): return p * 0.002
@@ -385,7 +438,20 @@ def circuit_breaker_reason():
     cutoff = str((datetime.now(NY) - timedelta(days=7)).date())
     recent = sum(_dollars(r) for r in closed if (r.get("date") or "") >= cutoff)
     if recent <= -WEEK_LOSS_HALT:
-        return f"7-day realized PnL ${recent:,.0f} breached -${WEEK_LOSS_HALT:,.0f}"
+        # when does the losing stretch roll out of the 7-day window
+        # (assuming no new trades)? say so, so the halt isn't a mystery
+        resume = ""
+        d = datetime.now(NY).date()
+        for _ in range(10):
+            d += timedelta(days=1)
+            c2 = str(d - timedelta(days=7))
+            if sum(_dollars(r) for r in closed if (r.get("date") or "") >= c2) > -WEEK_LOSS_HALT:
+                while d.weekday() >= 5:
+                    d += timedelta(days=1)
+                resume = f"; resumes automatically {d:%a %b %-d}"
+                break
+        return (f"7-day realized PnL ${recent:,.0f} breached "
+                f"-${WEEK_LOSS_HALT:,.0f}{resume}")
     if total <= -TOTAL_LOSS_HALT:
         return f"all-time realized PnL ${total:,.0f} breached -${TOTAL_LOSS_HALT:,.0f}"
     return None
@@ -414,7 +480,7 @@ def kill_requested():
     return os.path.exists(KILL_FILE)
 
 
-def flatten_all(ib):
+def flatten_all(ib, tickers=None):
     for tr in list(ib.openTrades()):
         ib.cancelOrder(tr.order)
     ib.sleep(1)
@@ -424,8 +490,8 @@ def flatten_all(ib):
         c = pos.contract
         c.exchange = "SMART"
         action = "SELL" if pos.position > 0 else "BUY"
-        o = MarketOrder(action, abs(pos.position))
-        o.outsideRth = True
+        ref = live_px((tickers or {}).get(c.symbol)) or pos.avgCost
+        o = exit_order(action, abs(pos.position), ref)
         ib.placeOrder(c, o)
         log(f"FLATTEN {action} {abs(pos.position)} {c.symbol}")
     ib.sleep(2)
@@ -453,8 +519,17 @@ def realized_pnl_today(fills):
     return pnl
 
 
-def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0, size_factor=1.0):
+def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0,
+                  size_factor=1.0, last_px=None):
     risk = setup["risk"]
+    # v4.6: never open a trade whose stop is already breached (10/14: a buy
+    # limit at 779.52 filled at 777.29, already below its 778.98 stop)
+    if last_px is not None:
+        if (setup["bias"] == "bull" and last_px <= setup["stop"]) or \
+           (setup["bias"] == "bear" and last_px >= setup["stop"]):
+            log(f"SKIP: price {last_px} already through stop {setup['stop']} "
+                f"- setup invalidated before entry")
+            return "skip-invalidated"
     # ---- v4.2 execution hygiene (does not change which setups are DETECTED,
     # only refuses executions the ETF cannot honestly express) ----
     if risk < MIN_STOP_FRAC * setup["entry"]:
@@ -511,7 +586,14 @@ def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0, size_factor
     tp.outsideRth = True
     tp.transmit = False
 
-    sl = StopOrder(exit_side, qty, setup["stop"])
+    cushion = max(2 * TICK, round(STOP_CUSHION_R * risk, 2))
+    if is_rth():
+        sl = StopOrder(exit_side, qty, setup["stop"])
+    else:
+        # v4.6: a plain stop cannot execute before 9:30; a stop-limit can
+        lmt = (setup["stop"] - cushion if exit_side == "SELL"
+               else setup["stop"] + cushion)
+        sl = StopLimitOrder(exit_side, qty, round(lmt, 2), setup["stop"])
     sl.orderId = ib.client.getReqId()
     sl.parentId = parent.orderId
     sl.outsideRth = True
@@ -522,10 +604,12 @@ def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0, size_factor
     ib.placeOrder(contract, tp)
     trade_sl = ib.placeOrder(contract, sl)
     log(f"BRACKET {side} {qty} {contract.symbol} @ {setup['entry']} "
-        f"stop {setup['stop']} target {setup['target']} ({target_r}R)")
+        f"stop {setup['stop']} ({sl.orderType}) target {setup['target']} "
+        f"({target_r}R)")
     return {"parent_id": parent.orderId, "qty": qty, "side": side,
             "tp_id": tp.orderId, "sl_id": sl.orderId,
-            "risk": risk, "entry_px": setup["entry"]}
+            "risk": risk, "entry_px": setup["entry"],
+            "stop_px": setup["stop"], "cushion": cushion}
 
 
 def main():
@@ -546,6 +630,7 @@ def main():
             return
     reason = circuit_breaker_reason()
     if reason:
+        write_halt(reason)
         log(f"CIRCUIT BREAKER TRIPPED: {reason}. Trading halted — no orders "
             f"will be placed until the limits in this script are raised or "
             f"the journal is reviewed. This is deliberate.")
@@ -615,7 +700,7 @@ def main():
         if kill_requested():
             log("Kill switch found — flattening and exiting.")
             if not dry:
-                flatten_all(ib)
+                flatten_all(ib, tickers)
             break
         now = datetime.now(NY)
         today = now.date()
@@ -623,7 +708,7 @@ def main():
         if block_end and now >= block_end:
             log(f"Block {block} over — flattening and exiting.")
             if not dry:
-                flatten_all(ib)
+                flatten_all(ib, tickers)
             break
 
         # risk layer: fixed daily cutoff + tiered drawdown breakers
@@ -633,13 +718,15 @@ def main():
                                            if f.time.astimezone(NY).date() == today])
             if intraday <= -MAX_DAILY_LOSS and halted_day != today:
                 log(f"DAILY LOSS CUTOFF hit ({intraday:.0f}) — flattening, done for today.")
-                flatten_all(ib)
+                write_halt(f"daily loss limit hit (${intraday:,.0f}) - done for today")
+                flatten_all(ib, tickers)
                 halted_day = today
         halt_reason, size_factor = risk_state(equity, intraday)
         if halt_reason:
+            write_halt(halt_reason)
             npos = sum(1 for p in ib.positions() if p.position)
             if not dry:
-                flatten_all(ib)
+                flatten_all(ib, tickers)
             lower = halt_reason.lower()
             if "peak" in lower:
                 log_breaker("PEAK-DD >10% HALT", halt_reason, equity, npos,
@@ -678,8 +765,27 @@ def main():
             ct = m.get("closing")
             if ct is not None:
                 if ct.orderStatus.status == "Filled":
-                    record_close(m, entry_px, ct.orderStatus.avgFillPrice, "time")
+                    record_close(m, entry_px, ct.orderStatus.avgFillPrice,
+                                 m.get("closing_kind", "time"))
                     open_mgmt.remove(m)
+                elif (ct.orderStatus.status in ("Cancelled", "ApiCancelled", "Inactive")
+                      or now >= m.get("closing_at", now) + timedelta(minutes=2)):
+                    # exit didn't fill (off-hours limit outrun) - re-price it
+                    if ct.orderStatus.status not in ("Cancelled", "ApiCancelled", "Inactive"):
+                        ib.cancelOrder(ct.order)
+                        ib.sleep(1)
+                    pos = next((p for p in ib.positions()
+                                if p.contract.symbol == m["symbol"] and p.position != 0), None)
+                    if pos is None:
+                        record_close(m, entry_px, live_px(tickers.get(m["symbol"])) or entry_px,
+                                     m.get("closing_kind", "time"))
+                        open_mgmt.remove(m)
+                    else:
+                        o = exit_order("SELL" if pos.position > 0 else "BUY",
+                                       abs(pos.position), live_px(tickers.get(m["symbol"])))
+                        m["closing"] = ib.placeOrder(contracts[m["symbol"]], o)
+                        m["closing_at"] = now
+                        log(f"EXIT RE-PRICED {m['symbol']} {m['window']}")
                 continue
             # closed by the bracket?
             done_close = False
@@ -693,16 +799,38 @@ def main():
                     break
             if done_close:
                 continue
+            # v4.6 software stop: if price is past the resting stop's limit
+            # (stop-limit outrun, stop not working off-hours, or filled
+            # already through the stop), the bracket failed - exit for real
+            px_now = live_px(tickers.get(m["symbol"]))
+            if px_now is not None:
+                long_ = m["side"] == "BUY"
+                stop_now = m["entry_px"] if m.get("be_armed") else m["stop_px"]
+                fail_px = (stop_now - m["cushion"]) if long_ else (stop_now + m["cushion"])
+                if (px_now <= fail_px) if long_ else (px_now >= fail_px):
+                    for t2 in ib.openTrades():
+                        if t2.order.orderId in (m["parent_id"], m["tp_id"], m["sl_id"]):
+                            ib.cancelOrder(t2.order)
+                    ib.sleep(1)
+                    sl_tr = next((t for t in ib.trades()
+                                  if t.order.orderId == m["sl_id"]), None)
+                    if sl_tr is not None and (sl_tr.orderStatus.filled or 0) > 0:
+                        continue   # the real stop got there first; recorded next poll
+                    pos = next((p for p in ib.positions()
+                                if p.contract.symbol == m["symbol"] and p.position != 0), None)
+                    if pos is not None:
+                        o = exit_order("SELL" if pos.position > 0 else "BUY",
+                                       abs(pos.position), px_now)
+                        m["closing"] = ib.placeOrder(contracts[m["symbol"]], o)
+                        m["closing_kind"] = "stop"
+                        m["closing_at"] = now
+                        log(f"SOFTWARE STOP {m['symbol']} {m['window']}: price {px_now} "
+                            f"past stop {stop_now} by more than {m['cushion']} - exiting")
+                        continue
             # v4 breakeven: once price trades +1R in our favor, move the
             # resting stop to entry (engine arms it and applies from then on)
             if m.get("breakeven") and not m.get("be_armed"):
-                tk = tickers.get(m["symbol"])
-                px = None
-                if tk is not None:
-                    for cand in (tk.last, tk.close):
-                        if cand and cand > 0:
-                            px = cand
-                            break
+                px = live_px(tickers.get(m["symbol"]))
                 if px is not None:
                     up = m["side"] == "BUY"
                     trig = (m["entry_px"] + m["risk"] if up
@@ -712,6 +840,10 @@ def main():
                                    if t.order.orderId == m["sl_id"]), None)
                         if t2 is not None:
                             t2.order.auxPrice = round(m["entry_px"], 2)
+                            if t2.order.orderType == "STP LMT":
+                                t2.order.lmtPrice = round(
+                                    m["entry_px"] - m["cushion"] if up
+                                    else m["entry_px"] + m["cushion"], 2)
                             ib.placeOrder(contracts[m["symbol"]], t2.order)
                             m["be_armed"] = True
                             log(f"BREAKEVEN {m['symbol']} {m['window']}: "
@@ -726,10 +858,10 @@ def main():
                             ib.cancelOrder(t2.order)
                     ib.sleep(1)
                     c = contracts[m["symbol"]]
-                    o = MarketOrder("SELL" if pos.position > 0 else "BUY",
-                                    abs(pos.position))
-                    o.outsideRth = True
+                    o = exit_order("SELL" if pos.position > 0 else "BUY",
+                                   abs(pos.position), live_px(tickers.get(m["symbol"])))
                     m["closing"] = ib.placeOrder(c, o)
+                    m["closing_at"] = now
                     log(f"TIME EXIT {m['symbol']} {m['window']} after "
                         f"{m.get('max_hold', MAX_HOLD) * 5} min")
                 else:
@@ -805,7 +937,9 @@ def main():
                         f"over {n_live} trades -> risk x{wmult}")
                 placed = place_bracket(ib, contracts[sym], setup, target_r,
                                        equity=equity,
-                                       size_factor=size_factor * wmult)
+                                       size_factor=size_factor * wmult,
+                                       last_px=live_px(tickers.get(sym))
+                                       or (bars[-1]["c"] if bars else None))
                 if isinstance(placed, str):
                     sig_row["outcome"] = placed
                     journal_row(sig_row)
