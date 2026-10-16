@@ -168,9 +168,13 @@ jobs:
           CONN=false
           grep -q "Connected. Paper account" bot/sb_bot.log 2>/dev/null && CONN=true
           EQ=$(cat bot/sb_equity.txt 2>/dev/null || true)
-          case "$EQ" in (''|*[!0-9.]*) EQ=null ;; esac
+          case "$EQ" in (''|*[!0-9.]*) EQ=$(python3 -c "import json;print(json.load(open('data/bot_status.json')).get('equity') or 'null')" 2>/dev/null || echo null) ;; esac
+          # a risk-limit halt is not a connection failure - say what it is
+          OUTCOME="${{ steps.runbot.outcome }}"
+          HALT=$(head -c 300 bot/sb_halt.txt 2>/dev/null | tr -d '"\\\n' || true)
+          [ -n "$HALT" ] && OUTCOME=halted
           mkdir -p data
-          printf '{"utc":"%s","block":"%s","connected":%s,"outcome":"%s","run_id":"%s","equity":%s}' "$(date -u +%FT%TZ)" "${{ steps.gate.outputs.block }}" "$CONN" "${{ steps.runbot.outcome }}" "${{ github.run_id }}" "$EQ" > data/bot_status.json
+          printf '{"utc":"%s","block":"%s","connected":%s,"outcome":"%s","run_id":"%s","equity":%s,"halt":"%s"}' "$(date -u +%FT%TZ)" "${{ steps.gate.outputs.block }}" "$CONN" "$OUTCOME" "${{ github.run_id }}" "$EQ" "$HALT" > data/bot_status.json
           cat data/bot_status.json
 
       - name: Gateway diagnostics
