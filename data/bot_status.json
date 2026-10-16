@@ -1,1 +1,1 @@
-{"utc":"2026-10-16T13:57:17Z","block":"morning","connected":false,"outcome":"running","run_id":"38911857638","equity":null,"starts":"2026-10-16T13:57:17Z"}
+{"utc":"2026-10-16T13:58:07Z","block":"morning","connected":false,"outcome":"halted","run_id":"38911857638","equity":null,"halt":"7-day realized PnL $-6,055 breached -$5,000; resumes automatically Mon Oct 19"}
