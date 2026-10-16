@@ -67,7 +67,7 @@
 </head>
 <body>
 <div class="topbar">
-  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · v4.3.1 spec</small></span>
+  <span class="sym">IBKR ACCOUNT <small>DUT146048 · SPY/QQQ · <span id="botver">v4.5</span></small></span>
   <span id="brk" class="badge ok" style="display:none"></span>
   <span class="spacer"></span>
   <span class="updated" id="upd"></span>
@@ -377,6 +377,9 @@ function renderBotline(s){
       amber();
       el.textContent="\u25D0 BOT RUNNING NOW \u00B7 block: "+s.block+" \u00B7 since "+when+" ("+ago+") \u2014 result posts when the block ends";
     }
+  }else if(s.outcome==="halted"){
+    red();
+    el.textContent="\u26D4 TRADING HALTED BY RISK LIMIT \u00B7 "+(s.halt||"loss limit reached")+" \u00B7 checked "+when+" ("+ago+") \u2014 the bot is fine; it is refusing to trade on purpose";
   }else if(s.connected){
     green();
     el.textContent="\u25CF LAST RUN OK \u00B7 connected to IBKR \u00B7 block: "+s.block+" \u00B7 finished "+when+" ("+ago+")";
@@ -442,6 +445,15 @@ load();
 setInterval(load, 5*60*1000);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) load(); });
 window.addEventListener("resize", ()=>render());
+</script>
+<script>
+// read the running version straight from the bot file so this label can't go stale
+(async()=>{try{
+  const r=await fetch("bot/sb_paper_bot.py?t="+Date.now(),{cache:"no-store"});
+  if(!r.ok) return;
+  const m=(await r.text()).match(/^v(\d+\.\d+(?:\.\d+)?) \((\d{4}-\d{2}-\d{2})\)/m);
+  if(m){const el=document.getElementById("botver");el.textContent="v"+m[1];el.title="bot version "+m[1]+", deployed "+m[2];}
+}catch(e){}})();
 </script>
 </body>
 </html>
