@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-10-19 17:44 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 25519 bars, 2026-06-08 → 2026-10-19; CL: 25317 bars, 2026-06-09 → 2026-10-19; ES: 25244 bars, 2026-06-09 → 2026-10-19
+**Last updated:** 2026-10-19 22:17 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 25562 bars, 2026-06-08 → 2026-10-19; CL: 25360 bars, 2026-06-09 → 2026-10-19; ES: 25288 bars, 2026-06-09 → 2026-10-19
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -34,7 +34,7 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 |---|---|---|---|---|---|---|
 | NQ | 39 | 28.2% | -0.25 | -9.91 | 0.64 | −$6,465 |
 | CL | 9 | 33.3% | 0.0 | 0.0 | 1.0 | −$230 |
-| ES | 44 | 29.5% | -0.19 | -8.56 | 0.71 | −$3,028 |
+| ES | 46 | 28.3% | -0.23 | -10.56 | 0.67 | −$3,485 |
 
 ## Old vs New — the retro comparison
 
@@ -42,8 +42,8 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 
 | Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |
 |---|---|---|---|---|---|---|
-| OLD — base spec · all markets · all windows | 92 | 29.3% | -0.255 | -23.44 | 0.65 | -0.226 → -0.321 |
-| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 69 | 56.5% | 0.189 | 13.01 | 1.44 | 0.283 → -0.028 |
+| OLD — base spec · all markets · all windows | 94 | 28.7% | -0.272 | -25.6 | 0.63 | -0.24 → -0.345 |
+| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 70 | 54.3% | 0.142 | 9.97 | 1.31 | 0.215 → -0.028 |
 
 ## System Lab — which variant is most profitable?
 
@@ -51,17 +51,17 @@ Every mechanical variant of the strategy, run on all markets, ranked by total co
 
 | Rank | Variant | Trades | Win % | Avg R | Total R | PF | NQ avg R | ES avg R | CL avg R | IS → OOS | Robust |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 2R · breakeven stop after +1R | 92 | 26.1% | -0.134 | -12.35 | 0.77 | -0.213 (39) | -0.106 (44) | 0.069 (9) | -0.084 → -0.243 | — |
-| 2 | 1R target · stop@sweep | 92 | 45.7% | -0.148 | -13.62 | 0.74 | -0.264 (39) | -0.067 (44) | -0.042 (9) | -0.127 → -0.194 | — |
-| 3 | 2R target · stop@sweep (base) | 92 | 29.3% | -0.255 | -23.44 | 0.65 | -0.292 (39) | -0.243 (44) | -0.154 (9) | -0.213 → -0.346 | — |
-| 4 | 3R target · stop@gap edge | 193 | 24.9% | -0.139 | -26.84 | 0.84 | -0.093 (74) | -0.316 (63) | -0.001 (56) | -0.208 → 0.018 | — |
-| 5 | 2R · no time exit (hold 6.5h) | 92 | 25.0% | -0.296 | -27.26 | 0.62 | -0.345 (39) | -0.282 (44) | -0.154 (9) | -0.25 → -0.398 | — |
-| 6 | 1.5R target · stop@sweep | 92 | 32.6% | -0.298 | -27.44 | 0.58 | -0.331 (39) | -0.265 (44) | -0.32 (9) | -0.308 → -0.278 | — |
-| 7 | FADE the setup (take opposite side) | 92 | 29.3% | -0.33 | -30.33 | 0.55 | -0.236 (39) | -0.312 (44) | -0.82 (9) | -0.441 → -0.087 | — |
-| 8 | 3R target · stop@sweep | 92 | 21.7% | -0.36 | -33.12 | 0.55 | -0.408 (39) | -0.155 (44) | -1.154 (9) | -0.272 → -0.552 | — |
-| 9 | 1.5R target · stop@gap edge | 193 | 35.8% | -0.234 | -45.15 | 0.68 | -0.241 (74) | -0.408 (63) | -0.028 (56) | -0.211 → -0.287 | — |
-| 10 | 2R target · stop@gap edge | 193 | 28.5% | -0.273 | -52.65 | 0.66 | -0.268 (74) | -0.408 (63) | -0.127 (56) | -0.296 → -0.219 | — |
-| 11 | 1R target · stop@gap edge | 193 | 40.4% | -0.319 | -61.65 | 0.53 | -0.39 (74) | -0.36 (63) | -0.18 (56) | -0.334 → -0.287 | — |
+| 1 | 2R · breakeven stop after +1R | 94 | 25.5% | -0.154 | -14.51 | 0.74 | -0.213 (39) | -0.149 (46) | 0.069 (9) | -0.115 → -0.243 | — |
+| 2 | 1R target · stop@sweep | 94 | 44.7% | -0.168 | -15.78 | 0.71 | -0.264 (39) | -0.111 (46) | -0.042 (9) | -0.156 → -0.194 | — |
+| 3 | 2R target · stop@sweep (base) | 94 | 28.7% | -0.272 | -25.6 | 0.63 | -0.292 (39) | -0.279 (46) | -0.154 (9) | -0.239 → -0.347 | — |
+| 4 | 3R target · stop@gap edge | 194 | 24.7% | -0.145 | -28.04 | 0.83 | -0.093 (74) | -0.329 (64) | -0.001 (56) | -0.208 → -0.002 | — |
+| 5 | 2R · no time exit (hold 6.5h) | 94 | 24.5% | -0.313 | -29.43 | 0.6 | -0.345 (39) | -0.317 (46) | -0.154 (9) | -0.275 → -0.398 | — |
+| 6 | 1.5R target · stop@sweep | 94 | 31.9% | -0.315 | -29.6 | 0.56 | -0.331 (39) | -0.301 (46) | -0.32 (9) | -0.331 → -0.278 | — |
+| 7 | FADE the setup (take opposite side) | 94 | 28.7% | -0.346 | -32.49 | 0.54 | -0.236 (39) | -0.345 (46) | -0.82 (9) | -0.432 → -0.152 | — |
+| 8 | 3R target · stop@sweep | 94 | 21.3% | -0.375 | -35.29 | 0.54 | -0.408 (39) | -0.195 (46) | -1.154 (9) | -0.296 → -0.552 | — |
+| 9 | 1.5R target · stop@gap edge | 194 | 35.6% | -0.239 | -46.35 | 0.68 | -0.241 (74) | -0.42 (64) | -0.028 (56) | -0.211 → -0.302 | — |
+| 10 | 2R target · stop@gap edge | 194 | 28.4% | -0.278 | -53.85 | 0.66 | -0.268 (74) | -0.42 (64) | -0.127 (56) | -0.296 → -0.236 | — |
+| 11 | 1R target · stop@gap edge | 194 | 40.2% | -0.324 | -62.85 | 0.53 | -0.39 (74) | -0.373 (64) | -0.18 (56) | -0.334 → -0.302 | — |
 
 ## Oil Lab — a Silver Bullet restructured for CL
 
@@ -86,9 +86,9 @@ Simulation of adaptive re-optimization with **zero hindsight**: every 14 days, t
 
 | Trades | Win % | Avg R | **Total R** | PF | At 2× costs | Specs churned |
 |---|---|---|---|---|---|---|
-| 27 | 55.6% | 0.136 | **3.66** | 1.31 | 2.57 | 8 distinct specs |
+| 25 | 48.0% | -0.013 | **-0.33** | 0.97 | -1.42 | 8 distinct specs |
 
-**Reading:** positive walk-forward is a meaningfully stronger signal than any retro number — but with this few periods it is still fragile. Watch whether it persists and whether the picked specs stabilize (low churn) as data accumulates.
+**Reading:** negative or flat walk-forward means the re-optimization process itself has no demonstrated edge — each period's 'best' specs did not stay best. High spec churn reinforces it: a real edge picks the same specs repeatedly; noise picks new ones each time.
 
 ## Recent trades
 
