@@ -2,6 +2,13 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.6.1 (2026-10-20): paper-evaluation limits. The 7-day breaker (-$5,000)
+kept re-tripping on the 10/14 bug loss and blocked the test the fixes need;
+raised to -$10,000 and all-time to -$20,000. Daily -$2,000 and the % drawdown
+breakers are unchanged. Also: IBKR error/reject messages now go to the bot
+log, and an order IBKR cancels or rejects before it fills is journaled as
+"rejected" instead of vanishing silently.
+
 v4.6 (2026-10-16): off-hours stop protection. 10/14 pre-market: the bracket
 stop (a plain STP) could not execute before 9:30 - IBKR will not run a
 triggered stop-market for US stocks outside regular hours - so a 1R loser
@@ -85,8 +92,8 @@ PAPER_PORTS = [4002, 7497]        # IB Gateway paper, TWS paper. NEVER 4001/7496
 CLIENT_ID = 7
 RISK_DOLLARS = 1000.0             # $ risked per trade (0.1% of the $1M sim account)
 MAX_DAILY_LOSS = 2000.0           # stop trading for the day at -$2,000 realized
-WEEK_LOSS_HALT = 5000.0           # circuit breaker: halt if last 7 days <= -$5,000
-TOTAL_LOSS_HALT = 10000.0         # circuit breaker: halt if all-time <= -$10,000
+WEEK_LOSS_HALT = 10000.0          # circuit breaker: halt if last 7 days <= -$10,000 (v4.6.1)
+TOTAL_LOSS_HALT = 20000.0         # circuit breaker: halt if all-time <= -$20,000 (v4.6.1)
 
 # Tiered drawdown breakers (fire on actual P&L, % of account equity):
 #   daily DD > 2%  -> all position sizes cut 50% for the rest of the day
@@ -668,6 +675,14 @@ def main():
         + (f". Block: {block} (ends {block_end:%H:%M} ET)" if block else ""))
     ib.reqMarketDataType(1)
 
+    # v4.6.1: IBKR's own error/reject messages into the bot log (codes
+    # 2100-2199 are routine data-farm notices, skip those)
+    def _on_err(reqId, code, msg, *rest):
+        if 2100 <= code < 2200:
+            return
+        log(f"IBKR message {code} (id {reqId}): {msg}")
+    ib.errorEvent += _on_err
+
     equity = 1_000_000.0
     try:
         for row in ib.accountSummary():
@@ -749,6 +764,18 @@ def main():
                 open_mgmt.remove(m); continue
             status = tr.orderStatus.status
             if status in ("Cancelled", "ApiCancelled", "Inactive"):
+                # v4.6.1: an order that dies before it fills is news, not noise
+                if not m.get("fill_time"):
+                    log(f"ORDER {status.upper()} BY IBKR before fill: {m['symbol']} "
+                        f"{m['window']} {m['side']} @ {m['entry_px']} - see IBKR "
+                        f"messages above for the reason")
+                    journal_row({
+                        "date": str(today), "proxy": m["symbol"],
+                        "market": PROXY_OF[m["symbol"]], "window": m["window"],
+                        "bias": "bull" if m["side"] == "BUY" else "bear", "qty": "",
+                        "entry": m["entry_px"], "stop": m.get("stop_px", ""),
+                        "target": "", "exit": "", "outcome": "rejected",
+                        "pts": "", "r": "", "dollars": ""})
                 open_mgmt.remove(m); continue
             filled = tr.orderStatus.filled or 0
             if filled == 0 and now >= m["wclose"]:
