@@ -2,6 +2,18 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.7 (2026-10-20): CHASE. If the limit at the gap edge is still unfilled
+CHASE_AFTER_MIN minutes after placement and price has already moved in the
+trade's direction past the entry (the setup "ran away", e.g. 10/20 late-
+morning short: price never retraced to 771.25 and fell to target without us),
+cancel the resting bracket and enter at a marketable limit. Stop stays on
+structure; target = R x the new (wider) risk; size from the same $ risk
+budget, so a chased trade risks the same dollars on a wider stop. Only
+inside the window, only if the new stop distance is <= 1.5x the leg's cap.
+Replay on SPY/QQQ bars Jun-Oct: +0.6R Jun-Aug, +0.8R Sep-Oct, ~17 extra
+trades over 4 months; modest, positive in both halves. Journaled as a second
+"signal" row (the chase entry) after the original.
+
 v4.6.1 (2026-10-20): paper-evaluation limits. The 7-day breaker (-$5,000)
 kept re-tripping on the 10/14 bug loss and blocked the test the fixes need;
 raised to -$10,000 and all-time to -$20,000. Daily -$2,000 and the % drawdown
@@ -139,6 +151,9 @@ MAX_HOLD = 24            # bars (2h) default max hold after fill
 TICK = 0.01              # ETF tick
 # v4.6 off-hours protection
 STOP_CUSHION_R = 0.5     # stop-limit's limit sits 0.5R past its trigger
+CHASE_AFTER_MIN = 15     # v4.7: unfilled this long + price ran away -> chase
+CHASE_MAX_STOP_MULT = 1.5   # chased stop distance <= 1.5x the leg's cap
+CHASE_SLIP = 0.03        # marketable limit: this far through last price
 OFFHOURS_EXIT_SLIP = 0.003   # off-hours exits: limit 0.3% through last price
 HALT_FILE = os.path.join(HERE, "sb_halt.txt")
 
@@ -782,6 +797,57 @@ def main():
                 ib.cancelOrder(tr.order)
                 log(f"Window over, entry unfilled — cancelled {m['symbol']} {m['window']}")
                 open_mgmt.remove(m); continue
+            # v4.7 chase: unfilled, price already past the entry in our
+            # direction, enough window left -> take it at the market
+            if (filled == 0 and not m.get("chased")
+                    and now >= m["placed_at"] + timedelta(minutes=CHASE_AFTER_MIN)
+                    and now < m["wclose"] - timedelta(minutes=5)):
+                px_now = live_px(tickers.get(m["symbol"]))
+                long_ = m["side"] == "BUY"
+                if px_now is not None and ((px_now > m["entry_px"]) if long_
+                                           else (px_now < m["entry_px"])):
+                    new_entry = round(px_now + CHASE_SLIP if long_
+                                      else px_now - CHASE_SLIP, 2)
+                    new_risk = abs(new_entry - m["stop_px"])
+                    cap = CHASE_MAX_STOP_MULT * m["stop_frac"] * new_entry
+                    if new_risk <= 0 or new_risk > cap:
+                        log(f"CHASE skipped {m['symbol']} {m['window']}: new stop "
+                            f"distance {new_risk:.2f} > cap {cap:.2f}")
+                        m["chased"] = True
+                        continue
+                    for t2 in ib.openTrades():
+                        if t2.order.orderId in (m["parent_id"], m["tp_id"], m["sl_id"]):
+                            ib.cancelOrder(t2.order)
+                    ib.sleep(1)
+                    tr_r = m["target_r"]
+                    setup2 = {"bias": "bull" if long_ else "bear", "entry": new_entry,
+                              "stop": m["stop_px"], "risk": new_risk,
+                              "target": round(new_entry + tr_r * new_risk if long_
+                                              else new_entry - tr_r * new_risk, 2)}
+                    log(f"CHASE {m['symbol']} {m['window']}: unfilled {CHASE_AFTER_MIN} min, "
+                        f"price {px_now} already past entry {m['entry_px']} -> "
+                        f"entering at {new_entry}, stop {m['stop_px']}, target {setup2['target']}")
+                    placed2 = place_bracket(ib, contracts[m["symbol"]], setup2, tr_r,
+                                            equity=equity, size_factor=m["size_factor"],
+                                            last_px=px_now)
+                    open_mgmt.remove(m)
+                    if isinstance(placed2, dict):
+                        journal_row({"date": str(today), "proxy": m["symbol"],
+                                     "market": PROXY_OF[m["symbol"]], "window": m["window"],
+                                     "bias": setup2["bias"], "qty": "", "entry": new_entry,
+                                     "stop": m["stop_px"], "target": setup2["target"],
+                                     "exit": "", "outcome": "signal", "pts": "", "r": "",
+                                     "dollars": ""})
+                        placed2.update({k: m[k] for k in ("symbol", "window", "wclose",
+                                                           "max_hold", "breakeven",
+                                                           "stop_frac", "target_r",
+                                                           "size_factor")})
+                        placed2.update({"fill_time": None, "be_armed": False,
+                                        "chased": True, "placed_at": now})
+                        open_mgmt.append(placed2)
+                    else:
+                        log(f"CHASE not placed: {placed2}")
+                    continue
             if filled > 0 and m.get("fill_time") is None:
                 m["fill_time"] = now
                 log(f"FILLED {m['symbol']} {m['window']} x{filled}")
@@ -978,7 +1044,11 @@ def main():
                                    "wclose": wclose, "fill_time": None,
                                    "max_hold": leg["max_hold"],
                                    "breakeven": leg["breakeven"],
-                                   "be_armed": False})
+                                   "be_armed": False, "placed_at": now,
+                                   "stop_frac": leg["stop_frac"],
+                                   "target_r": target_r,
+                                   "size_factor": size_factor * wmult,
+                                   "chased": False})
                     open_mgmt.append(placed)
 
         # cloud mode: leave early once every window is closed and nothing is open
