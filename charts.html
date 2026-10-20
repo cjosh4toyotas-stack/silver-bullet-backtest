@@ -293,12 +293,12 @@ function renderTrades(){
   if(!rows.length){ el.innerHTML='<div class="empty">No '+SYM+' trades yet.</div>'; return; }
   let h='<table><tr><th>Date</th><th>Window</th><th>Side</th><th class="num">Qty</th><th class="num">Entry</th><th class="num">Exit</th><th>Outcome</th><th class="num">R</th><th class="num">P&L</th></tr>';
   for(const r of [...rows].reverse()){
-    const sig=r.outcome==="signal"||(r.outcome||"").startsWith("skip");
+    const sig=r.outcome==="signal"||(r.outcome||"").startsWith("skip")||r.outcome==="rejected";
     const cls=r.$>0?"up":r.$<0?"dn":"";
     h+='<tr'+(sig?' class="sig"':'')+'><td>'+r.date+'</td><td>'+r.window+'</td><td>'+
        (r.bias==="bull"?"LONG":"SHORT")+'</td><td class="num">'+(r.qty||"—")+
        '</td><td class="num">'+(r.entry||"—")+'</td><td class="num">'+(r.exit||"—")+
-       '</td><td>'+((r.outcome||"").startsWith("skip")?"refused · "+r.outcome.slice(5).replace(/-/g," "):r.outcome==="signal"?"signal · order placed":r.outcome)+'</td><td class="num '+cls+'">'+(sig?"—":r.R.toFixed(2))+
+       '</td><td>'+((r.outcome||"").startsWith("skip")?"refused · "+r.outcome.slice(5).replace(/-/g," "):r.outcome==="signal"?"signal · order placed":r.outcome==="rejected"?"rejected by IBKR before fill":r.outcome)+'</td><td class="num '+cls+'">'+(sig?"—":r.R.toFixed(2))+
        '</td><td class="num '+cls+'">'+(sig?"—":(r.$<0?"-":"+")+"$"+Math.abs(r.$).toFixed(0))+'</td></tr>';
   }
   el.innerHTML=h+'</table>';

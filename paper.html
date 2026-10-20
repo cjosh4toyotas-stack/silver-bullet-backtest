@@ -107,8 +107,8 @@
     <div style="overflow-x:auto"><table id="tbl"></table></div>
     <div class="note">Dimmed rows are setups the bot detected: "signal" means an order was placed, "skip-…" means the v4.2 execution gate refused it (stop too tight/wide, spread too wide off-hours, or no usable quote);
       they become closed rows when the trade resolves. Stops rest server-side at
-      IBKR. Risk $1,000/trade · daily halt −$2,000 · 7-day breaker −$5,000 ·
-      all-time breaker −$10,000.</div>
+      IBKR. Risk $1,000/trade · daily halt −$2,000 · 7-day breaker −$10,000 ·
+      all-time breaker −$20,000.</div>
   </div>
 </div>
 
@@ -168,7 +168,7 @@ async function load(){
 function render(){
   const rows = LAST.rows;
   const closed = rows.filter(r=>r.outcome && r.outcome!=="signal" && r.dollars!=="");
-  const signals = rows.filter(r=>r.outcome==="signal"||(r.outcome||"").startsWith("skip"));
+  const signals = rows.filter(r=>r.outcome==="signal"||(r.outcome||"").startsWith("skip")||r.outcome==="rejected");
   closed.forEach(r=>{ r.$=parseFloat(r.dollars)||0; r.R=parseFloat(r.r)||0; });
 
   const net = closed.reduce((a,r)=>a+r.$,0);
@@ -176,7 +176,7 @@ function render(){
   const wins = closed.filter(r=>r.$>0).length;
   const cutoff = new Date(Date.now()-7*864e5).toISOString().slice(0,10);
   const week = closed.filter(r=>r.date>=cutoff).reduce((a,r)=>a+r.$,0);
-  const tripped = week<=-5000 || net<=-10000;
+  const tripped = week<=-10000 || net<=-20000;   // v4.6.1 limits
 
   const brk=document.getElementById("brk");
   brk.style.display="inline-block";
@@ -191,7 +191,7 @@ function render(){
       closed.length?("avg "+(netR/closed.length).toFixed(2)+"R"):"—"],
     ["Win rate",closed.length?Math.round(100*wins/closed.length)+"%":"—","",
       wins+" W / "+(closed.length-wins)+" L"],
-    ["Last 7 days",fmt$(week),cls(week),"halts at −$5,000"],
+    ["Last 7 days",fmt$(week),cls(week),"halts at −$10,000"],
     ["Signals",String(signals.length),"","setups detected"]];
   document.getElementById("tiles").innerHTML = t.map(x=>
     `<div class="tile"><div class="k">${x[0]}</div>
@@ -419,7 +419,7 @@ function renderTable(rows){
   }
   const head=["Date","Window","Mkt","Side","Qty","Entry","Exit","Outcome","Pts","R","P&L"];
   const body=[...rows].reverse().map(r=>{
-    const sig=r.outcome==="signal"||(r.outcome||"").startsWith("skip");
+    const sig=r.outcome==="signal"||(r.outcome||"").startsWith("skip")||r.outcome==="rejected";
     const d=parseFloat(r.dollars);
     return `<tr class="${sig?"sig":""}">
       <td>${r.date}</td><td>${r.window}</td>
@@ -427,7 +427,7 @@ function renderTable(rows){
       <td>${r.bias==="bull"?"LONG":(r.bias==="bear"?"SHORT":"—")}</td>
       <td class="num">${r.qty||"—"}</td>
       <td class="num">${r.entry}</td><td class="num">${r.exit||"—"}</td>
-      <td>${r.outcome==="signal"?"signal · order placed":(r.outcome||"").startsWith("skip")?"refused · "+r.outcome.slice(5).replace(/-/g," "):(r.outcome==="halted"?"⛔ breaker halt ("+r.window+")":r.outcome)}</td>
+      <td>${r.outcome==="signal"?"signal · order placed":(r.outcome||"").startsWith("skip")?"refused · "+r.outcome.slice(5).replace(/-/g," "):(r.outcome==="halted"?"⛔ breaker halt ("+r.window+")":r.outcome==="rejected"?"⚠ order cancelled/rejected by IBKR before fill":r.outcome)}</td>
       <td class="num">${r.pts||"—"}</td><td class="num">${r.r||"—"}</td>
       <td class="num ${isNaN(d)?"":cls(d)}">${isNaN(d)?"—":fmt$(d)}</td></tr>`;
   }).join("");
