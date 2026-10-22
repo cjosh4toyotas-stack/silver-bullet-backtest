@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-10-22 17:05 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 26336 bars, 2026-06-08 → 2026-10-22; CL: 26137 bars, 2026-06-09 → 2026-10-22; ES: 26062 bars, 2026-06-09 → 2026-10-22
+**Last updated:** 2026-10-22 20:32 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 26378 bars, 2026-06-08 → 2026-10-22; CL: 26179 bars, 2026-06-09 → 2026-10-22; ES: 26104 bars, 2026-06-09 → 2026-10-22
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -43,7 +43,7 @@ Same mechanical rules run on other markets (continuous front-month, Yahoo data).
 | Spec | Trades | Win % | Avg R | Total R | PF | IS → OOS |
 |---|---|---|---|---|---|---|
 | OLD — base spec · all markets · all windows | 97 | 28.9% | -0.265 | -25.66 | 0.64 | -0.263 → -0.267 |
-| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 75 | 52.0% | 0.089 | 6.71 | 1.19 | 0.24 → -0.25 |
+| NEW v3 (sel. Sep 19) — NQ midday·1R · ES open+pre-settle·1R & London·2R · CL not traded | 76 | 51.3% | 0.075 | 5.69 | 1.15 | 0.253 → -0.337 |
 
 ## System Lab — which variant is most profitable?
 
@@ -86,7 +86,7 @@ Simulation of adaptive re-optimization with **zero hindsight**: every 14 days, t
 
 | Trades | Win % | Avg R | **Total R** | PF | At 2× costs | Specs churned |
 |---|---|---|---|---|---|---|
-| 29 | 44.8% | -0.089 | **-2.58** | 0.84 | -3.91 | 8 distinct specs |
+| 30 | 43.3% | -0.12 | **-3.6** | 0.79 | -4.94 | 8 distinct specs |
 
 **Reading:** negative or flat walk-forward means the re-optimization process itself has no demonstrated edge — each period's 'best' specs did not stay best. High spec churn reinforces it: a real edge picks the same specs repeatedly; noise picks new ones each time.
 
