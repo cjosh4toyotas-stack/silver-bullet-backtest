@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-10-23 12:50",
+ "generated_utc": "2026-10-23 17:51",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 26561,
+   "bars": 26621,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-10-23 08:40"
+   "last_ny": "2026-10-23 13:40"
   },
   {
    "contract": "CL",
-   "bars": 26363,
+   "bars": 26423,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-10-23 08:40"
+   "last_ny": "2026-10-23 13:40"
   },
   {
    "contract": "ES",
-   "bars": 26287,
+   "bars": 26347,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-10-23 08:40"
+   "last_ny": "2026-10-23 13:40"
   }
  ],
  "overall": {
@@ -11121,6 +11121,30 @@
      "r": -1.0,
      "r_net": -1.1,
      "dollars": -110.0
+    },
+    {
+     "market": "ES",
+     "contract": "ES",
+     "day": "2026-10-23",
+     "window": "Midday 12-1p",
+     "bias": "bear",
+     "sweep_time": "2026-10-23 11:30",
+     "sweep_px": 7697.25,
+     "fvg_time": "2026-10-23 12:25",
+     "gap_far": 7684.0,
+     "gap_near": 7680.25,
+     "entry_time": "2026-10-23 12:30",
+     "exit_time": "2026-10-23 12:30",
+     "entry": 7680.25,
+     "stop": 7684.25,
+     "target": 7672.25,
+     "risk_pts": 4.0,
+     "outcome": "stop",
+     "exit": 7684.25,
+     "pts": -4.0,
+     "r": -1.0,
+     "r_net": -1.05,
+     "dollars": -210.0
     }
    ],
    "NQ": [
