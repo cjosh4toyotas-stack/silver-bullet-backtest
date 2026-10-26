@@ -2,6 +2,19 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.7.1 (2026-10-26): three execution guards.
+  * pre-fill invalidation: a resting entry whose stop price has already
+    traded is cancelled instead of left to fill through the stop (10/23
+    pre-market: buy limit 761.94 filled at 760.79, below its 761.14 stop,
+    then stopped for -$59; harmless thanks to the stop-limit, but pointless)
+  * one-at-a-time per symbol: no new SPY (or QQQ) entry while a position or
+    working entry already exists in that symbol - IBKR nets same-symbol
+    trades into one position and the journal can't tell them apart (9/25)
+  * chase deadline buffer 5 -> 2 min before window close (10/22 midday
+    chase missed by seconds)
+  Journal outcomes added: "skip-invalidated" (pre-fill cancel),
+  "skip-position-open".
+
 v4.7 (2026-10-20): CHASE. If the limit at the gap edge is still unfilled
 CHASE_AFTER_MIN minutes after placement and price has already moved in the
 trade's direction past the entry (the setup "ran away", e.g. 10/20 late-
@@ -797,11 +810,37 @@ def main():
                 ib.cancelOrder(tr.order)
                 log(f"Window over, entry unfilled — cancelled {m['symbol']} {m['window']}")
                 open_mgmt.remove(m); continue
+            # v4.7.1 pre-fill invalidation: price already through the stop
+            # while the entry is still resting -> the setup failed before we
+            # were in; cancel rather than fill into a dead trade
+            if filled == 0:
+                px_inv = live_px(tickers.get(m["symbol"]))
+                if px_inv is not None and ((px_inv <= m["stop_px"]) if m["side"] == "BUY"
+                                           else (px_inv >= m["stop_px"])):
+                    # cancel ONLY the parent: if it fills in the same instant
+                    # the bracket children stay live and protect the position;
+                    # if it cancels, IBKR drops the children with it
+                    ib.cancelOrder(tr.order)
+                    ib.sleep(1)
+                    tr2 = next((t for t in ib.trades()
+                                if t.order.orderId == m["parent_id"]), None)
+                    if tr2 is not None and (tr2.orderStatus.filled or 0) > 0:
+                        continue   # filled in the same instant; manage it normally
+                    log(f"INVALIDATED before fill: {m['symbol']} {m['window']} price "
+                        f"{px_inv} through stop {m['stop_px']} - entry cancelled")
+                    journal_row({
+                        "date": str(today), "proxy": m["symbol"],
+                        "market": PROXY_OF[m["symbol"]], "window": m["window"],
+                        "bias": "bull" if m["side"] == "BUY" else "bear", "qty": "",
+                        "entry": m["entry_px"], "stop": m["stop_px"], "target": "",
+                        "exit": "", "outcome": "skip-invalidated",
+                        "pts": "", "r": "", "dollars": ""})
+                    open_mgmt.remove(m); continue
             # v4.7 chase: unfilled, price already past the entry in our
             # direction, enough window left -> take it at the market
             if (filled == 0 and not m.get("chased")
                     and now >= m["placed_at"] + timedelta(minutes=CHASE_AFTER_MIN)
-                    and now < m["wclose"] - timedelta(minutes=5)):
+                    and now < m["wclose"] - timedelta(minutes=2)):
                 px_now = live_px(tickers.get(m["symbol"]))
                 long_ = m["side"] == "BUY"
                 if px_now is not None and ((px_now > m["entry_px"]) if long_
@@ -994,6 +1033,20 @@ def main():
                 if not setup:
                     continue
                 done[key] = True
+                # v4.7.1: one trade per symbol at a time (IBKR nets them)
+                busy = any(x["symbol"] == sym for x in open_mgmt) or any(
+                    p.position for p in ib.positions() if p.contract.symbol == sym)
+                if busy:
+                    log(f"SKIP {sym} {wname}: a {sym} position/entry is already "
+                        f"working - one at a time per symbol")
+                    journal_row({
+                        "date": str(today), "proxy": sym, "market": PROXY_OF[sym],
+                        "window": wname, "bias": setup["bias"], "qty": "",
+                        "entry": setup["entry"], "stop": setup["stop"],
+                        "target": setup["target"], "exit": "",
+                        "outcome": "skip-position-open", "pts": "", "r": "",
+                        "dollars": ""})
+                    continue
                 # v4.3: shade the entry toward easier fills; stop stays on
                 # structure, target recomputed from the shaded entry
                 if setup["bias"] == "bull":
