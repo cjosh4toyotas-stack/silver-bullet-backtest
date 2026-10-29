@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-10-29 16:52",
+ "generated_utc": "2026-10-29 21:44",
  "rules_version": "1.1 (2026-08-18)",
  "coverage": [
   {
@@ -10,21 +10,21 @@
   },
   {
    "contract": "NQF-continuous",
-   "bars": 27708,
+   "bars": 27759,
    "first_ny": "2026-06-08 00:00",
-   "last_ny": "2026-10-29 12:40"
+   "last_ny": "2026-10-29 16:55"
   },
   {
    "contract": "CL",
-   "bars": 27513,
+   "bars": 27564,
    "first_ny": "2026-06-09 00:00",
-   "last_ny": "2026-10-29 12:40"
+   "last_ny": "2026-10-29 16:55"
   },
   {
    "contract": "ES",
-   "bars": 27435,
+   "bars": 27486,
    "first_ny": "2026-06-09 00:05",
-   "last_ny": "2026-10-29 12:40"
+   "last_ny": "2026-10-29 16:55"
   }
  ],
  "overall": {
@@ -2640,32 +2640,6 @@
    "robust": false
   },
   {
-   "id": "notime",
-   "label": "2R \u00b7 no time exit (hold 6.5h)",
-   "n": 100,
-   "win_rate": 26.0,
-   "avg_r": -0.282,
-   "total_r": -28.22,
-   "pf": 0.63,
-   "per_market": {
-    "NQ": {
-     "n": 40,
-     "avg_r": -0.363
-    },
-    "CL": {
-     "n": 9,
-     "avg_r": -0.154
-    },
-    "ES": {
-     "n": 51,
-     "avg_r": -0.241
-    }
-   },
-   "is_avg_r": -0.231,
-   "oos_avg_r": -0.397,
-   "robust": false
-  },
-  {
    "id": "t15-sweep",
    "label": "1.5R target \u00b7 stop@sweep",
    "n": 100,
@@ -2689,6 +2663,32 @@
    },
    "is_avg_r": -0.298,
    "oos_avg_r": -0.272,
+   "robust": false
+  },
+  {
+   "id": "notime",
+   "label": "2R \u00b7 no time exit (hold 6.5h)",
+   "n": 100,
+   "win_rate": 25.0,
+   "avg_r": -0.295,
+   "total_r": -29.48,
+   "pf": 0.62,
+   "per_market": {
+    "NQ": {
+     "n": 40,
+     "avg_r": -0.363
+    },
+    "CL": {
+     "n": 9,
+     "avg_r": -0.154
+    },
+    "ES": {
+     "n": 51,
+     "avg_r": -0.266
+    }
+   },
+   "is_avg_r": -0.231,
+   "oos_avg_r": -0.438,
    "robust": false
   },
   {
