@@ -71,3 +71,5 @@ date,proxy,market,window,bias,qty,entry,stop,target,exit,outcome,pts,r,dollars
 2026-10-30,SPY,ES,Midday 12-1p,bull,,757.67,757.57,757.87,,skip-stop-too-tight,,,
 2026-10-30,SPY,ES,Pre-market 8-9a,bull,,761.41,760.89,762.97,,signal,,,
 2026-10-30,SPY,ES,Pre-market 8-9a,bull,1923,761.41,,,761.01,stop,-0.39,-0.76,-757.42
+2026-11-02,SPY,ES,Pre-market 8-9a,bull,,758.85,758.12,761.04,,signal,,,
+2026-11-02,SPY,ES,Pre-market 8-9a,bull,684,758.33,,,761.04,target,2.71,3.71,1853.87
