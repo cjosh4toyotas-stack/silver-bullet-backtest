@@ -2,6 +2,20 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.7.2 (2026-11-03): fresh off-hours price. 11/3 pre-market: the streaming
+ticker's "last" was stale by >2 points at 8:30 (pre-market ticks are sparse
+on the paper feed), so the stop-breach guard let a SELL limit at 751.28 go
+out with the market already at 753.65, above its 752.30 stop; it filled
+there, the bracket stop-limit triggered at once, and the software stop was
+blind for 30 min (same stale ticker) while price sat up to 2.3R past the
+stop - a 10/14 repeat waiting to happen (it closed +0.82R by luck when the
+stop-limit's 752.81 limit filled). Fix (execution only): every price-based
+decision (stop-breach guard, pre-fill invalidation, software stop, chase,
+breakeven, exit reference prices) now goes through fresh_px(), which off
+hours reads the latest 1-min TRADES bar from IBKR (forming bar included,
+cached 10 s per symbol) instead of the ticker, and in regular hours falls
+back to that bar when the ticker has no last. Detection and sizing unchanged.
+
 v4.7.1 (2026-10-26): three execution guards.
   * pre-fill invalidation: a resting entry whose stop price has already
     traded is cancelled instead of left to fill through the stop (10/23
@@ -185,6 +199,45 @@ def live_px(tk):
     if v is not None and v == v and v > 0:
         return float(v)
     return None
+
+
+_PX_CACHE = {}   # symbol -> (monotonic time, price): v4.7.2 bar-price cache
+FRESH_PX_TTL = 10.0
+
+
+def bar_px(ib, contract):
+    """v4.7.2: last traded price from IBKR's 1-min TRADES bars, forming bar
+    included - a second source that cannot go stale the way the off-hours
+    streaming ticker did on 11/3. None on any failure. Cached per symbol so
+    one poll never sends the same request twice (pacing)."""
+    key = getattr(contract, "symbol", str(contract))
+    t = time.monotonic()
+    hit = _PX_CACHE.get(key)
+    if hit and t - hit[0] < FRESH_PX_TTL:
+        return hit[1]
+    try:
+        raw = ib.reqHistoricalData(
+            contract, endDateTime="", durationStr="300 S",
+            barSizeSetting="1 min", whatToShow="TRADES", useRTH=False,
+            formatDate=2)
+        px = float(raw[-1].close) if raw else None
+        if px is not None and not (px == px and px > 0):
+            px = None
+    except Exception as e:
+        log(f"bar price fetch failed for {key}: {e}")
+        px = None
+    _PX_CACHE[key] = (t, px)
+    return px
+
+
+def fresh_px(ib, contract, tk):
+    """v4.7.2: the price every execution decision uses. Off hours the 1-min
+    bar is the primary source (the ticker's last lagged the market by >2
+    points on 11/3 pre-market); in regular hours the ticker is primary and
+    the bar is the fallback when it has no last."""
+    if is_rth():
+        return live_px(tk) or bar_px(ib, contract)
+    return bar_px(ib, contract) or live_px(tk)
 
 
 def exit_order(action, qty, ref_px=None):
@@ -525,7 +578,7 @@ def flatten_all(ib, tickers=None):
         c = pos.contract
         c.exchange = "SMART"
         action = "SELL" if pos.position > 0 else "BUY"
-        ref = live_px((tickers or {}).get(c.symbol)) or pos.avgCost
+        ref = fresh_px(ib, c, (tickers or {}).get(c.symbol)) or pos.avgCost
         o = exit_order(action, abs(pos.position), ref)
         ib.placeOrder(c, o)
         log(f"FLATTEN {action} {abs(pos.position)} {c.symbol}")
@@ -735,6 +788,10 @@ def main():
         contracts[sym] = c
         tickers[sym] = ib.reqMktData(c, "", False, False)
 
+    def px_of(sym):
+        # v4.7.2: one price source for every execution decision
+        return fresh_px(ib, contracts[sym], tickers.get(sym))
+
     done = {}       # (date, window name) -> True once traded/attempted
     open_mgmt = []  # [{trade info for time-exit management}]
     halted_day = None
@@ -814,7 +871,7 @@ def main():
             # while the entry is still resting -> the setup failed before we
             # were in; cancel rather than fill into a dead trade
             if filled == 0:
-                px_inv = live_px(tickers.get(m["symbol"]))
+                px_inv = px_of(m["symbol"])
                 if px_inv is not None and ((px_inv <= m["stop_px"]) if m["side"] == "BUY"
                                            else (px_inv >= m["stop_px"])):
                     # cancel ONLY the parent: if it fills in the same instant
@@ -841,7 +898,7 @@ def main():
             if (filled == 0 and not m.get("chased")
                     and now >= m["placed_at"] + timedelta(minutes=CHASE_AFTER_MIN)
                     and now < m["wclose"] - timedelta(minutes=2)):
-                px_now = live_px(tickers.get(m["symbol"]))
+                px_now = px_of(m["symbol"])
                 long_ = m["side"] == "BUY"
                 if px_now is not None and ((px_now > m["entry_px"]) if long_
                                            else (px_now < m["entry_px"])):
@@ -909,12 +966,12 @@ def main():
                     pos = next((p for p in ib.positions()
                                 if p.contract.symbol == m["symbol"] and p.position != 0), None)
                     if pos is None:
-                        record_close(m, entry_px, live_px(tickers.get(m["symbol"])) or entry_px,
+                        record_close(m, entry_px, px_of(m["symbol"]) or entry_px,
                                      m.get("closing_kind", "time"))
                         open_mgmt.remove(m)
                     else:
                         o = exit_order("SELL" if pos.position > 0 else "BUY",
-                                       abs(pos.position), live_px(tickers.get(m["symbol"])))
+                                       abs(pos.position), px_of(m["symbol"]))
                         m["closing"] = ib.placeOrder(contracts[m["symbol"]], o)
                         m["closing_at"] = now
                         log(f"EXIT RE-PRICED {m['symbol']} {m['window']}")
@@ -934,7 +991,7 @@ def main():
             # v4.6 software stop: if price is past the resting stop's limit
             # (stop-limit outrun, stop not working off-hours, or filled
             # already through the stop), the bracket failed - exit for real
-            px_now = live_px(tickers.get(m["symbol"]))
+            px_now = px_of(m["symbol"])
             if px_now is not None:
                 long_ = m["side"] == "BUY"
                 stop_now = m["entry_px"] if m.get("be_armed") else m["stop_px"]
@@ -962,7 +1019,7 @@ def main():
             # v4 breakeven: once price trades +1R in our favor, move the
             # resting stop to entry (engine arms it and applies from then on)
             if m.get("breakeven") and not m.get("be_armed"):
-                px = live_px(tickers.get(m["symbol"]))
+                px = px_of(m["symbol"])
                 if px is not None:
                     up = m["side"] == "BUY"
                     trig = (m["entry_px"] + m["risk"] if up
@@ -991,7 +1048,7 @@ def main():
                     ib.sleep(1)
                     c = contracts[m["symbol"]]
                     o = exit_order("SELL" if pos.position > 0 else "BUY",
-                                   abs(pos.position), live_px(tickers.get(m["symbol"])))
+                                   abs(pos.position), px_of(m["symbol"]))
                     m["closing"] = ib.placeOrder(c, o)
                     m["closing_at"] = now
                     log(f"TIME EXIT {m['symbol']} {m['window']} after "
@@ -1084,7 +1141,7 @@ def main():
                 placed = place_bracket(ib, contracts[sym], setup, target_r,
                                        equity=equity,
                                        size_factor=size_factor * wmult,
-                                       last_px=live_px(tickers.get(sym))
+                                       last_px=px_of(sym)
                                        or (bars[-1]["c"] if bars else None))
                 if isinstance(placed, str):
                     sig_row["outcome"] = placed
