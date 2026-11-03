@@ -81,17 +81,28 @@ jobs:
       - name: Announce run start (live heartbeat)
         if: steps.gate.outputs.skip == 'false'
         run: |
-          EQ=$(python3 -c "import json;print(json.load(open('data/bot_status.json')).get('equity') or 'null')" 2>/dev/null || echo null)
-          START=$(date -u -d "+${{ steps.gate.outputs.wait }} seconds" +%FT%TZ)
-          mkdir -p data
-          printf '{"utc":"%s","block":"%s","connected":false,"outcome":"running","run_id":"%s","equity":%s,"starts":"%s"}' \
-            "$(date -u +%FT%TZ)" "${{ steps.gate.outputs.block }}" "${{ github.run_id }}" "$EQ" "$START" > data/bot_status.json
+          # 2026-11-03: a run that QUEUED behind another one (the afternoon ping
+          # now lands during the morning run) checks out the commit that
+          # triggered it, which is behind main by the time it starts. The old
+          # "git pull --rebase" then hit a conflict on bot_status.json, the
+          # heartbeat push failed, the repo was left mid-rebase and the final
+          # journal push failed too - a whole run invisible. Now: sync to the
+          # current main first, write, commit, push, retry from a fresh sync.
           git config user.name "sb-update-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/bot_status.json
-          if git commit -m "bot: run started (${{ steps.gate.outputs.block }})"; then
-            git pull --rebase && git push || echo "::warning::could not push start heartbeat"
-          fi
+          START=$(date -u -d "+${{ steps.gate.outputs.wait }} seconds" +%FT%TZ)
+          for i in 1 2 3; do
+            git rebase --abort 2>/dev/null || true
+            git fetch -q origin main && git reset -q --hard origin/main
+            EQ=$(python3 -c "import json;print(json.load(open('data/bot_status.json')).get('equity') or 'null')" 2>/dev/null || echo null)
+            mkdir -p data
+            printf '{"utc":"%s","block":"%s","connected":false,"outcome":"running","run_id":"%s","equity":%s,"starts":"%s"}' \
+              "$(date -u +%FT%TZ)" "${{ steps.gate.outputs.block }}" "${{ github.run_id }}" "$EQ" "$START" > data/bot_status.json
+            git add data/bot_status.json
+            git commit -q -m "bot: run started (${{ steps.gate.outputs.block }})" || break
+            git push -q origin HEAD:main && break
+            echo "heartbeat push failed (attempt $i) - resyncing"; sleep 5
+          done || echo "::warning::could not push start heartbeat"
 
       - name: Wait for block start
         if: steps.gate.outputs.skip == 'false'
@@ -190,21 +201,34 @@ jobs:
       - name: Commit journal
         if: always() && steps.gate.outputs.skip == 'false'
         run: |
-          if [ -f bot/sb_bot_journal.csv ]; then
-            mkdir -p data
-            touch data/bot_journal.csv
-            head -1 bot/sb_bot_journal.csv > /tmp/j.csv
-            tail -n +2 -q data/bot_journal.csv bot/sb_bot_journal.csv 2>/dev/null \
-              | grep -v '^date,' | sort -u >> /tmp/j.csv || true
-            cp /tmp/j.csv data/bot_journal.csv
-          fi
+          # 2026-11-03: same stale-checkout fix as the heartbeat - resync to
+          # main, re-merge the journal onto it, commit, push, retry on failure
           git config user.name "sb-update-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/bot_journal.csv data/bot_status.json 2>/dev/null || true
-          git diff --cached --quiet || {
-            git commit -m "bot: status/journal update"
-            git pull --rebase && git push
-          }
+          NOOP=false
+          grep -q "already over" bot/sb_bot.log 2>/dev/null && NOOP=true
+          cp data/bot_status.json /tmp/status.json 2>/dev/null || true
+          for i in 1 2 3; do
+            git rebase --abort 2>/dev/null || true
+            git fetch -q origin main && git reset -q --hard origin/main
+            mkdir -p data
+            if [ -f bot/sb_bot_journal.csv ]; then
+              touch data/bot_journal.csv
+              head -1 bot/sb_bot_journal.csv > /tmp/j.csv
+              tail -n +2 -q data/bot_journal.csv bot/sb_bot_journal.csv 2>/dev/null \
+                | grep -v '^date,' | sort -u >> /tmp/j.csv || true
+              cp /tmp/j.csv data/bot_journal.csv
+            fi
+            if [ "$NOOP" = false ] && [ -s /tmp/status.json ]; then
+              cp /tmp/status.json data/bot_status.json
+            fi
+            git add data/bot_journal.csv data/bot_status.json 2>/dev/null || true
+            if git diff --cached --quiet; then echo "nothing to commit"; break; fi
+            git commit -q -m "bot: status/journal update"
+            git push -q origin HEAD:main && break
+            echo "journal push failed (attempt $i) - resyncing"; sleep 5
+            [ "$i" = 3 ] && exit 1
+          done
 
       - name: Propagate bot result
         if: always() && steps.gate.outputs.skip == 'false' && steps.runbot.outcome == 'failure'
