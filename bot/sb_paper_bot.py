@@ -2,6 +2,28 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.7.3 (2026-11-06): fill reconciliation + scheduling fix (gate). Two
+accounting/infrastructure defects, no strategy change:
+  * reconcile_fills(): at the end of every run the bot compares today's IBKR
+    executions (per symbol, FIFO-matched) with today's closed journal rows.
+    Any realized P&L the journal does not carry is written as an
+    "unjournaled" row (qty, pts, dollars; window "unreconciled") and logged
+    loudly, so the dashboard, the day/7-day/all-time breakers and the tally
+    see every dollar the account actually made or lost. Found by reconciling
+    30 days of get_account_trades against the journal: 10/22 13:41 ET a
+    230-share SPY short at 766.34 closed at 762.19 (+$949) inside run
+    39798799050 with no journal row at all (the run's Midday "signal" row
+    never got a close). Mechanism still unknown - the run log is needed.
+  * bot/block_gate.py: a firing that lands while today's run of a block is
+    already live/finished claims the NEXT block if it starts within 90 min,
+    instead of re-running the covered block for a minute. The exact-time
+    pings are fixed UTC times, so after the 11/1 DST change the 14:45 UTC
+    "afternoon" ping landed at 09:45 ET inside the morning block; the
+    afternoon block then started only when a backup firing happened to land
+    (11/3 12:46, 11/4 13:51, 11/6 12:27 ET) and the Late-morning window was
+    missed on all three days. The pings themselves should also move to
+    New-York clock times (02:10 / 07:10 / 10:45 ET).
+
 v4.7.2 (2026-11-03): fresh off-hours price. 11/3 pre-market: the streaming
 ticker's "last" was stale by >2 points at 8:30 (pre-market ticks are sparse
 on the paper feed), so the stop-breach guard let a SELL limit at 751.28 go
@@ -607,6 +629,80 @@ def realized_pnl_today(fills):
     return pnl
 
 
+def _fifo_closed(fills):
+    """Per symbol: (shares closed, realized $ from prices) by FIFO matching."""
+    from collections import deque
+    lots, out = {}, {}
+    for f in sorted(fills, key=lambda f: f.time):
+        sym = f.contract.symbol
+        q = f.execution.shares * (1 if f.execution.side == "BOT" else -1)
+        px = f.execution.price
+        dq = lots.setdefault(sym, deque())
+        closed, pnl = out.get(sym, (0, 0.0))
+        while q != 0:
+            if not dq or (dq[0][0] > 0) == (q > 0):
+                dq.append((q, px)); break
+            oq, opx = dq.popleft()
+            m = min(abs(q), abs(oq))
+            pnl += m * (px - opx) * (1 if oq > 0 else -1)
+            closed += m
+            oq += m * (1 if q > 0 else -1)
+            q -= m * (1 if q > 0 else -1)
+            if oq != 0:
+                dq.appendleft((oq, opx))
+        out[sym] = (closed, pnl)
+    return out
+
+
+CLOSED_OUTCOMES = ("stop", "target", "time", "breakeven", "unjournaled")
+
+
+def reconcile_fills(ib, today):
+    """v4.7.3: every dollar the account realized today must be in the
+    journal. Compares today's executions (all clients, FIFO per symbol) with
+    today's closed journal rows and writes the difference as an
+    "unjournaled" row so dashboards, breakers and the tally see it. Never
+    raises; never touches orders."""
+    try:
+        fills = [f for f in ib.fills()
+                 if f.time.astimezone(NY).date() == today]
+        by_sym = _fifo_closed(fills)
+        rows = [r for r in journal_rows() if r.get("date") == str(today)
+                and str(r.get("outcome")) in CLOSED_OUTCOMES]
+        for sym, (closed, pnl) in by_sym.items():
+            j = [r for r in rows if r.get("proxy") == sym]
+            j_shares = 0
+            for r in j:
+                try:
+                    j_shares += int(float(r.get("qty") or 0))
+                except ValueError:
+                    pass
+            j_dollars = sum(_dollars(r) for r in j)
+            d_shares = closed - j_shares
+            d_dollars = pnl - j_dollars
+            if d_shares <= 0 and abs(d_dollars) < 5.0:
+                continue
+            if d_shares <= 0:
+                # same shares, different money: fill-price slippage vs the
+                # journal's rounded prices - log it, don't journal it
+                log(f"RECONCILE {sym}: journal ${j_dollars:+.0f} vs fills "
+                    f"${pnl:+.0f} on {closed} shares (price rounding)")
+                continue
+            qty = d_shares
+            log(f"UNJOURNALED FILLS {sym}: {closed} shares closed today for "
+                f"${pnl:+.2f}, journal has {j_shares} shares / ${j_dollars:+.2f} "
+                f"- writing an 'unjournaled' row for the {qty}-share, "
+                f"${d_dollars:+.2f} difference. Check this run's log.")
+            journal_row({
+                "date": str(today), "proxy": sym, "market": PROXY_OF.get(sym, "-"),
+                "window": "unreconciled", "bias": "-", "qty": qty,
+                "entry": "", "stop": "", "target": "", "exit": "",
+                "outcome": "unjournaled", "pts": round(d_dollars / qty, 2),
+                "r": "", "dollars": round(d_dollars, 2)})
+    except Exception as e:
+        log(f"reconcile_fills failed: {e}")
+
+
 def place_bracket(ib, contract, setup, target_r, equity=1_000_000.0,
                   size_factor=1.0, last_px=None):
     risk = setup["risk"]
@@ -1174,6 +1270,9 @@ def main():
 
         ib.sleep(POLL_SECONDS)
 
+    # v4.7.3: the journal must carry every dollar the account realized today
+    if not dry:
+        reconcile_fills(ib, datetime.now(NY).date())
     ib.disconnect()
 
 
