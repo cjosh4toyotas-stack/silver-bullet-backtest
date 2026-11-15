@@ -18,6 +18,13 @@ on:
   workflow_run:
     workflows: ["Update Silver Bullet backtest"]
     types: [completed] 
+  # 2026-11-05: independent backup launcher. An outside scheduler (cron-job.org)
+  # POSTs a repository_dispatch event at the block start times, so a day when
+  # the Claude-side pings don't land still trades. The gate treats it like any
+  # other firing (auto mode); a dispatch that arrives while a ping-started run
+  # is live just queues and then SKIPs.
+  repository_dispatch:
+    types: [ping, launch]
   workflow_dispatch:
     inputs:
       block:
@@ -99,7 +106,7 @@ jobs:
             printf '{"utc":"%s","block":"%s","connected":false,"outcome":"running","run_id":"%s","equity":%s,"starts":"%s"}' \
               "$(date -u +%FT%TZ)" "${{ steps.gate.outputs.block }}" "${{ github.run_id }}" "$EQ" "$START" > data/bot_status.json
             git add data/bot_status.json
-            git commit -q -m "bot: run started (${{ steps.gate.outputs.block }})" || break
+            git commit -q -m "bot: run started (${{ steps.gate.outputs.block }}) via ${{ github.event_name }}" || break
             git push -q origin HEAD:main && break
             echo "heartbeat push failed (attempt $i) - resyncing"; sleep 5
           done || echo "::warning::could not push start heartbeat"
