@@ -2,6 +2,19 @@
 """
 Silver Bullet v4 — automated PAPER trading bot (SPY/QQQ proxies).
 
+v4.8 (2026-11-16): TREND FILTER. Only take a setup whose direction agrees
+with the 50-bar EMA of 5-min closes at setup time (long only above it,
+short only below it). Evidence, same playbook replayed on ES futures:
+  Jun-Aug: 78 trades +23.7R unfiltered -> 36 trades +13.9R filtered
+           (+0.30R/trade -> +0.39R/trade)
+  Sep-Nov: 74 trades  -0.1R           -> 21 trades  +5.1R
+  Oct-Nov: 49 trades -16.2R           -> 13 trades  -3.0R
+The playbook went cold in Oct-Nov (18% winners on futures, not an
+execution problem); the filter cuts ~2/3 of trades and removes most of the
+counter-trend losers. Refused setups are journaled "skip-against-trend".
+NQ/QQQ Midday leg is EXEMPT (too few trades to judge; record preserved).
+TREND_FILTER = False turns it off.
+
 v4.7.3 (2026-11-06): fill reconciliation + scheduling fix (gate). Two
 accounting/infrastructure defects, no strategy change:
   * reconcile_fills(): at the end of every run the bot compares today's IBKR
@@ -491,6 +504,23 @@ def window_live_r(sym, wname):
 RTH_FILTER_FROM_WMIN = 540   # v4.5: windows opening at/after 9:00 ET use
                              # 9:30-16:00 bars only (London & pre-market keep
                              # extended-hours bars - they need them)
+TREND_FILTER = True     # v4.8: trade only with the 50-bar EMA (5-min closes)
+TREND_EMA_N = 50
+TREND_EXEMPT_SYMS = {"QQQ"}   # NQ/QQQ Midday leg keeps its own record
+
+
+def ema_last(bars, n=TREND_EMA_N):
+    """EMA of 5-min closes over the whole fetched series; value at the last
+    completed bar. None if fewer than n bars."""
+    if len(bars) < n:
+        return None
+    k = 2.0 / (n + 1)
+    e = bars[0]["c"]
+    for b in bars[1:]:
+        e = e + (b["c"] - e) * k
+    return e
+
+
 EARN_SIZE_MULT = 0.5   # v4.4: windows with a negative live record trade at
                        # half risk until their cumulative live R is back >= 0
 
@@ -1171,6 +1201,7 @@ def main():
                 except Exception as e:
                     log(f"bar fetch failed for {sym}: {e}")
                     continue
+                all_bars = bars   # v4.8: EMA is computed on the full series
                 # v4.5: regular-session windows detect on regular-session
                 # bars ONLY, exactly like the validated replay. Feeding the
                 # 2h sweep lookback with pre-market bars produced setups the
@@ -1186,6 +1217,23 @@ def main():
                 if not setup:
                     continue
                 done[key] = True
+                # v4.8: trend filter - direction must agree with the 50-bar EMA
+                if TREND_FILTER and sym not in TREND_EXEMPT_SYMS:
+                    ema = ema_last(all_bars)
+                    px_ref = all_bars[-1]["c"] if all_bars else None
+                    if ema is not None and px_ref is not None:
+                        with_trend = (px_ref > ema) if setup["bias"] == "bull" else (px_ref < ema)
+                        if not with_trend:
+                            log(f"SKIP {sym} {wname}: {setup['bias']} setup against "
+                                f"trend (last {px_ref:.2f} vs EMA{TREND_EMA_N} {ema:.2f})")
+                            journal_row({
+                                "date": str(today), "proxy": sym, "market": PROXY_OF[sym],
+                                "window": wname, "bias": setup["bias"], "qty": "",
+                                "entry": setup["entry"], "stop": setup["stop"],
+                                "target": setup["target"], "exit": "",
+                                "outcome": "skip-against-trend", "pts": "", "r": "",
+                                "dollars": ""})
+                            continue
                 # v4.7.1: one trade per symbol at a time (IBKR nets them)
                 busy = any(x["symbol"] == sym for x in open_mgmt) or any(
                     p.position for p in ib.positions() if p.contract.symbol == sym)
