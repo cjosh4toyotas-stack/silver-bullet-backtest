@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-11-16 07:12 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 30843 bars, 2026-06-08 → 2026-11-16; CL: 30657 bars, 2026-06-09 → 2026-11-16; ES: 30570 bars, 2026-06-09 → 2026-11-16
+**Last updated:** 2026-11-16 17:24 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 30999 bars, 2026-06-08 → 2026-11-16; CL: 30814 bars, 2026-06-09 → 2026-11-16; ES: 30726 bars, 2026-06-09 → 2026-11-16
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -69,8 +69,8 @@ Crude oil's liquidity clock differs from equity indices, so the same sweep→FVG
 
 | Rank | CL window · target | Trades | Win % | Avg R | Total R | PF | IS → OOS | Robust |
 |---|---|---|---|---|---|---|---|---|
-| 1 | EIA 10:30-11:30a · 2R | 2 | 100.0% | 1.935 | 3.87 | ∞ | 1.933 → 1.938 | — |
-| 2 | EIA 10:30-11:30a · 1R | 2 | 100.0% | 0.935 | 1.87 | ∞ | 0.933 → 0.938 | — |
+| 1 | EIA 10:30-11:30a · 1R | 3 | 100.0% | 0.927 | 2.78 | ∞ | 0.935 → 0.909 | — |
+| 2 | EIA 10:30-11:30a · 2R | 3 | 66.7% | 0.927 | 2.78 | 3.55 | 1.935 → -1.091 | — |
 | 3 | Pre-settle 1:30-2:30p · 1R | 5 | 60.0% | 0.099 | 0.5 | 1.22 | -0.444 → 0.913 | — |
 | 4 | Midday 12-1p · 1R | 3 | 33.3% | -0.514 | -1.54 | 0.37 | -1.225 → 0.909 | — |
 | 5 | Brent/London 3-4a · 1R | 3 | 33.3% | -0.54 | -1.62 | 0.37 | -0.281 → -1.059 | — |
