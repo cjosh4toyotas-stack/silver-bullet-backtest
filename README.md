@@ -2,7 +2,7 @@
 
 Fully mechanical backtest of the ICT "Silver Bullet" setup on E-mini Nasdaq 100 (NQ) futures, 5-minute bars, updated automatically on a schedule (GitHub Actions pulling delayed Yahoo Finance data, plus optional IBKR pulls). Every run re-tests the entire accumulated history, so the trade sample below grows over time.
 
-**Last updated:** 2026-11-18 09:03 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 31447 bars, 2026-06-08 → 2026-11-18; CL: 31264 bars, 2026-06-09 → 2026-11-18; ES: 31174 bars, 2026-06-09 → 2026-11-18
+**Last updated:** 2026-11-18 17:58 UTC · **Rules:** v1.1 (2026-08-18) · **Data:** NQ202609: 3499 bars, 2026-07-29 → 2026-08-16; NQF-continuous: 31556 bars, 2026-06-08 → 2026-11-18; CL: 31373 bars, 2026-06-09 → 2026-11-18; ES: 31283 bars, 2026-06-09 → 2026-11-18
 
 > ⚠️ **Small-sample warning:** results below are not statistically meaningful until the sample reaches well over 100 trades across different market regimes. Treat everything here as an ongoing experiment, not evidence of an edge. Not financial advice.
 
@@ -57,11 +57,11 @@ Every mechanical variant of the strategy, run on all markets, ranked by total co
 | 4 | 2R · no time exit (hold 6.5h) | 108 | 25.0% | -0.298 | -32.14 | 0.62 | -0.362 (44) | -0.27 (55) | -0.154 (9) | -0.205 → -0.499 | — |
 | 5 | 1.5R target · stop@sweep | 108 | 32.4% | -0.303 | -32.69 | 0.57 | -0.36 (44) | -0.254 (55) | -0.32 (9) | -0.282 → -0.349 | — |
 | 6 | FADE the setup (take opposite side) | 108 | 27.8% | -0.347 | -37.49 | 0.54 | -0.265 (44) | -0.335 (55) | -0.82 (9) | -0.392 → -0.249 | — |
-| 7 | 3R target · stop@gap edge | 230 | 23.9% | -0.173 | -39.83 | 0.8 | -0.169 (85) | -0.18 (80) | -0.17 (65) | -0.105 → -0.33 | — |
+| 7 | 3R target · stop@gap edge | 232 | 23.7% | -0.181 | -41.92 | 0.79 | -0.179 (86) | -0.191 (81) | -0.17 (65) | -0.086 → -0.397 | — |
 | 8 | 3R target · stop@sweep | 108 | 21.3% | -0.418 | -45.14 | 0.49 | -0.438 (44) | -0.282 (55) | -1.154 (9) | -0.223 → -0.842 | — |
-| 9 | 1.5R target · stop@gap edge | 230 | 35.7% | -0.233 | -53.64 | 0.68 | -0.258 (85) | -0.271 (80) | -0.155 (65) | -0.2 → -0.309 | — |
-| 10 | 2R target · stop@gap edge | 230 | 28.3% | -0.277 | -63.64 | 0.66 | -0.334 (85) | -0.252 (80) | -0.232 (65) | -0.241 → -0.359 | — |
-| 11 | 1R target · stop@gap edge | 230 | 40.0% | -0.325 | -74.64 | 0.53 | -0.405 (85) | -0.265 (80) | -0.293 (65) | -0.31 → -0.359 | — |
+| 9 | 1.5R target · stop@gap edge | 232 | 35.8% | -0.229 | -53.23 | 0.69 | -0.237 (86) | -0.281 (81) | -0.155 (65) | -0.19 → -0.319 | — |
+| 10 | 2R target · stop@gap edge | 232 | 28.0% | -0.283 | -65.73 | 0.65 | -0.342 (86) | -0.262 (81) | -0.232 (65) | -0.227 → -0.411 | — |
+| 11 | 1R target · stop@gap edge | 232 | 40.1% | -0.322 | -74.73 | 0.53 | -0.388 (86) | -0.275 (81) | -0.293 (65) | -0.302 → -0.368 | — |
 
 ## Oil Lab — a Silver Bullet restructured for CL
 
